@@ -10,6 +10,8 @@
 // variables
 static char *prompt_line = NULL;
 
+static int exec_loop = 1, exit_status = 0;
+
 static command library[] = {
   {"exit", slash_exit}
 };
@@ -18,16 +20,24 @@ int slash_exit(char **args) {
   // Could expect something like this (for internal use):
   //   args[1] = ["1"]
   //   args[2] = ["Message error"]
+
+  // Permet de sortie de la boucle while dans le main
+  exec_loop = 0;
   
   // external use (from terminal)
-  if(args[1] == NULL) {exit(0);}
+  if(args[1] == NULL) {return 0;}
 
   // internal use (from other fonctions)
   int status = atoi(args[1]);
   if (status > 0 && args[2] != NULL) {
     perror(args[2]);
   }
-  exit(status);
+  
+  // Valeur pour faire l'exit dans le main  
+  exit_status = status;
+
+  //exit(status);
+  return status;
 }
 
 void slash_read() {
@@ -69,7 +79,7 @@ char **slash_interpret(char *line) {
     // Assign string to a pointer in tokens.
     tokens[len] = t;
     
-    // Increase capacity if necessary
+    // Increase capacity if necessary 
     capacity = capacity * 2;
     tokens = realloc(tokens, capacity * sizeof(char*));
     
@@ -98,13 +108,14 @@ void slash_exec(char **tokens) {
     // If we find a match, execute with arguments
     if(!(strcmp(tokens[0], library[i].name))) {
       library[i].function(tokens);
+      if(!exec_loop) // On sort directement si on vient d'executer "exit" (ou une autre fonction qui doit stopper le programme)
+        return;
     }
   }
 }
 
-
 int main() {
-  while(true) {
+  while(exec_loop) {
     // Step 1: Read input and update prompt line variable:
     slash_read();
     
@@ -115,6 +126,11 @@ int main() {
     slash_exec(tokens);
 
     // Step 4: Clean memory:
+    for(int i=0;i<10;i++)
+      free(tokens[i]);
     free(tokens);
   }
+  
+  rl_clear_history();
+  return exit_status;
 }
