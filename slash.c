@@ -10,22 +10,27 @@
 // variables
 static char *prompt_line = NULL;
 
-// static command library[] = {
-//   {"exit", slash_exit}
-// };
+static command library[] = {
+  {"exit", slash_exit}
+};
 
 int slash_exit(char **args) {
-  // Expects something like:
-    // args[0] = ["1"]
-    // args[1] = ["Message error"]
-  int status = atoi(args[0]);
-  if (status > 0) {
-    perror(args[1]);
+  // Could expect something like this (for internal use):
+  //   args[1] = ["1"]
+  //   args[2] = ["Message error"]
+  
+  // external use (from terminal)
+  if(args[1] == NULL) {exit(0);}
+
+  // internal use (from other fonctions)
+  int status = atoi(args[1]);
+  if (status > 0 && args[2] != NULL) {
+    perror(args[2]);
   }
   exit(status);
 }
 
-void slash_read_input() {
+void slash_read() {
   // [TODO] Display path on prompt, see project doc. Above temporary solution:
   char * prompt_path = "> ";
 
@@ -44,8 +49,9 @@ void slash_read_input() {
   }
 }
 
-char **slash_interpret_input(char *line) {
+char **slash_interpret(char *line) {
   int len = 0;
+
   // Initial capacity of 10 words
   int capacity = 10;
 
@@ -79,15 +85,34 @@ char **slash_interpret_input(char *line) {
 }
 
 
+void slash_exec(char **tokens) {
+  // tokens should look like [["cd"], ["path/to/somewhere"]]
+  
+  // If there is nothing to execute, leave this function. 
+  if(tokens[0] == NULL) return;
+  
+  // Loop over all builtin methods.
+  int library_size = sizeof(library) / sizeof(library[0]);
+  for (int i = 0; i < library_size; i++) {
+
+    // If we find a match, execute with arguments
+    if(!(strcmp(tokens[0], library[i].name))) {
+      library[i].function(tokens);
+    }
+  }
+}
+
+
 int main() {
   while(true) {
     // Step 1: Read input and update prompt line variable:
-    slash_read_input();
+    slash_read();
     
     // Step 2: Interpret input:
-    char **tokens = slash_interpret_input(prompt_line);
+    char **tokens = slash_interpret(prompt_line);
     
     // Step 3: Execute input:
+    slash_exec(tokens);
 
     // Step 4: Clean memory:
     free(tokens);

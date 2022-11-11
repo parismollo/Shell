@@ -9,8 +9,9 @@ typedef struct command {
 }command;
 
 // Fonctions
-void slash_read_input();
-char **slash_interpret_input(char *line);
+void slash_read();
+char **slash_interpret(char *line);
+void slash_exec(char **tokens);
 int slash_exit(char **args);
 
 #endif

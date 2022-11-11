@@ -12,6 +12,7 @@
     * Regarding the memory leak for read line, see [this](https://stackoverflow.com/questions/55196451/gnu-readline-enormous-memory-**leak**).
   * `slash_interpret_input()`
   * `slash_exit()`
+  * `slash_exec()`
 
 ## Authors
 See [AUTHORS.md](AUTHORS.md)
