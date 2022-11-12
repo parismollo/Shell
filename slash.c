@@ -13,14 +13,24 @@
 
 // variables
 static char *prompt_line = NULL;
-
 static int exec_loop   = 1, // Variable pour sortir du while dans le main
            exit_status = 0; // Par défaut, une valeur de sortie de 0
-
 static command library[] = {
   {"exit", slash_exit},
-  {"pwd",  slash_pwd}
+  {"pwd",  slash_pwd},
+  {"help", slash_help}
 };
+
+int slash_help(char **args) {
+  char *help_text =
+    "\nSLASH LIB\n"
+    "---------------\n"
+    "pwd [-L | -P]\n"
+    "exit [val]"
+    "\n---------------\n";
+  printf("%s", help_text);
+  return 0;
+}
 
 int slash_exit(char **args) {
   // Could expect something like this (for internal use):
@@ -29,35 +39,48 @@ int slash_exit(char **args) {
 
   // Permet de sortie de la boucle while dans le main
   exec_loop = 0;
-  
-  // external use (from terminal)
-  if(args[1] == NULL) {return 0;}
-
-  // internal use (from other fonctions)
-  int status = atoi(args[1]);
-  if (status > 0 && args[2] != NULL) {
-    perror(args[2]);
+  // If not args, return previous status
+  if(args[1] == NULL) {return exit_status;}
+  if(args[2] != NULL) {
+    printf("slash: too many arguments, try help.\n");
+    exit_status = 1;
+    exec_loop = 1; // Don't quit, did not use function correctly.
+    return exit_status;
   }
+
+  // Otherwise, get status and update global variable
+  int status = atoi(args[1]);
+
+  // atoi returns 0, if can't convert.
+  if(status == 0) {
+    printf("slash: exiting with status 0\n");
+    exit_status = 0;
+    return exit_status;
+  }
+
+  // Maybe this is not useful: 
+  // if (status > 0 && args[2] != NULL) {
+  //   perror(args[2]);
+  // }
   
   // Valeur pour faire l'exit dans le main  
   exit_status = status;
 
   //exit(status);
-  return status;
+  return exit_status;
 }
 
 void slash_read() {
   // [TODO] Display path on prompt, see project doc. Above temporary solution:
   char * prompt_path = "> ";
 
-  // If prompt line is not null, we free then set to null for next use:
-  if (prompt_line) {
-    free(prompt_line);
-    prompt_line = NULL;
-  }
-
   // Read line from prompt and update prompt line variable:
   prompt_line = readline(prompt_path);
+  if(prompt_line == NULL) {
+    exec_loop = 0;
+    printf("EOF Detected\n");
+    return;
+  }
 
   // If prompt_line not empty or null, save to history: 
   if(prompt_line && *prompt_line) {
@@ -68,11 +91,9 @@ void slash_read() {
 char **slash_interpret(char *line) {
   int len = 0;
 
-  // Initial capacity of 10 words
-  int capacity = 10;
-
   // We need an array os strings, so a pointer for storing one string and a double pointer to store multiple.
-  char **tokens = malloc(sizeof(char *) * capacity);
+  char **tokens = malloc(sizeof(char *) * MAX_ARGS_NUMBER + 1);
+  if(tokens == NULL) {perror("Malloc Failed"); exec_loop = 0; return NULL;}
 
   // Define delimeters
   char delim[] = " ";
@@ -84,19 +105,19 @@ char **slash_interpret(char *line) {
   while(t != NULL) {
     // Assign string to a pointer in tokens.
     tokens[len] = t;
-    
-    // Increase capacity if necessary 
-    capacity = capacity * 2;
-    tokens = realloc(tokens, capacity * sizeof(char*));
-    
-    // Read next token
-    t = strtok(NULL, delim);
-
     // Update len
     len++;
+  
+    if(len < MAX_ARGS_NUMBER) {
+      // Read next token
+      t = strtok(NULL, delim);
+    }else {
+      break;
+    }
+  
   }
   // We set to null the last element so we know when to stop while looping.
-  tokens[len] = NULL; 
+  tokens[len] = NULL;
   return tokens;
 }
 
@@ -126,24 +147,20 @@ int main() {
     // Step 1: Read input and update prompt line variable:
     slash_read();
     
-    // Step 2: Interpret input:
-    char **tokens = slash_interpret(prompt_line);
-    
-    // Step 3: Execute input:
-    slash_exec(tokens);
-
+    if(prompt_line != NULL) {
+      // Step 2: Interpret input:
+      char **tokens = slash_interpret(prompt_line);
+      // Step 3: Execute input:
+      if(tokens) {slash_exec(tokens);}
+      free(tokens);
+    }
     // Step 4: Clean memory:
-
     ////////////////////////////////////////////////
     // ATTENTION PROBLEME DE MEMOIRE ICI A REGLER //
     ////////////////////////////////////////////////
-
-    //for(int i=0;i<10;i++)
-      //free(tokens[i]);
-    
-    free(tokens);
-  }
-  
+    free(prompt_line);
+  } 
+  // Clear readline history:
   rl_clear_history();
   return exit_status;
 }
@@ -212,12 +229,14 @@ int push_string(char* buffer, char* str) {
   size_t s1 = strlen(str), buf_size = strlen(buffer);
   if(buf_size + s1 + 1 >= PATH_MAX) { // On vérifie qu'on depasse pas la taille max
     perror("Pas assez de place dans le buffer");
-    return 1;
+    exit_status = 1;
+    return exit_status;
   }
   memmove(buffer + s1 + 1, buffer, buf_size); // On decalle ce qu'il y a dans buffer vers la droite
   buffer[0] = '/'; // On met un / au debut
   memmove(buffer + 1, str, s1); // On ecrit après le / le nom du dossier(str) dans le buffer
-  return 0;
+  exit_status = 0;
+  return exit_status;
 }
 
 // PWD affiche la (plus précisément, une) référence absolue du répertoire de travail courant
@@ -226,7 +245,8 @@ int slash_pwd(char** args) {
   // Donc si pas d'argument on quitte. Pareil si l'arg est différent de "-P"
   if(args[1] == NULL || strcmp(args[1], "-P") != 0) {
     // Afficher une aide ? help() ?
-    return 1;
+    exit_status = 1;
+    return exit_status;
   }
 
   DIR* dir = NULL, *parent = NULL;
@@ -252,7 +272,8 @@ int slash_pwd(char** args) {
     closedir(dir);
     printf("%s\n", buffer);
     free(buffer);
-    return 0;
+    exit_status = 0;
+    return exit_status;
   }
 
   char* name = NULL;
@@ -278,7 +299,8 @@ int slash_pwd(char** args) {
 
   printf("%s\n", buffer);
   free(buffer);
-  return 0;
+  exit_status = 0;
+  return exit_status;
 
   error:
     if(parent_fd < 0)
@@ -290,6 +312,7 @@ int slash_pwd(char** args) {
     if(parent)
       closedir(parent);
     perror("erreur dans slash_pwd");
-    return 1;
+    exit_status = 1;
+    return exit_status;
 }
 

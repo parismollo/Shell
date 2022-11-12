@@ -11,15 +11,18 @@ typedef struct command {
 
 }command;
 
-// Fonctions
+// Slash Fonctions
 void slash_read();
 char **slash_interpret(char *line);
 void slash_exec(char **tokens);
 int slash_exit(char **args);
+int slash_help(char **args);
+int slash_pwd(char** args);
 
+
+// Auxiliary
 int is_root(DIR *dir);
 char* get_dirname(DIR* dir, DIR* parent);
 int push_string(char* buffer, char* str);
-int slash_pwd(char** args);
 
 #endif

@@ -13,6 +13,7 @@
   * `slash_interpret_input()`
   * `slash_exit()`
   * `slash_exec()`
+  * `slash_help()`
 
 ## Authors
 See [AUTHORS.md](AUTHORS.md)
