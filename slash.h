@@ -18,6 +18,7 @@ void slash_exec(char **tokens);
 int slash_exit(char **args);
 int slash_help(char **args);
 int slash_pwd(char** args);
+int slash_cd(char **args);
 
 
 // Auxiliary

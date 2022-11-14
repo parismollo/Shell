@@ -8,6 +8,7 @@
 #include <sys/stat.h> 
 #include <fcntl.h>
 #include <unistd.h> 
+#include <errno.h>
 #include "slash.h"
 
 
@@ -18,7 +19,8 @@ static int exec_loop   = 1, // Variable pour sortir du while dans le main
 static command library[] = {
   {"exit", slash_exit},
   {"pwd",  slash_pwd},
-  {"help", slash_help}
+  {"help", slash_help},
+  {"cd", slash_cd}
 };
 
 int slash_help(char **args) {
@@ -316,3 +318,49 @@ int slash_pwd(char** args) {
     return exit_status;
 }
 
+int slash_cd(char **args)
+{
+  
+  if (args[1] == NULL || ((!strcmp(args[1], "-P") || !strcmp(args[1], "-L")) && args[2] == NULL)) {
+    const char *cd = getenv("HOME");
+    if(cd == NULL){
+      perror("La variable d'environnement HOME n'existe pas");
+      return 1;
+    }
+    chdir(cd);
+    //sauf si on fait cd pour aller à racine ? Utiliser chroot ? Et pour . et .. ?
+    //Dans le projet on veut home si pas arg et le précédent direct si -
+    //Avec l'option -P, ref (et en particulier ses composantes ..) est interprétée au regard de la structure physique de l'arborescence.
+    //Avec l'option -L (option par défaut), ref (et en particulier ses
+    //composantes ..) est interprétée de manière logique (a/../b est
+    //interprétée comme b) si cela a du sens, et de manière physique sinon.
+    //La valeur de retour est 0 en cas de succès, 1 en cas d'échec.
+    //OLDPWD
+  } else if(strcmp(args[1], "-P") == 0) {//args[1] ou args[2] ou les 2 peuvent être - ?
+
+    } else if(strcmp(args[1], "-") == 0){
+      
+    } else if (chdir(args[1]) != 0) {//chdir ou fchdir ? 
+     //setenv
+      perror("");//Utiliser errno
+      switch(errno){
+        case EACCES : 
+          perror("unauthorized access for one element of the path"); 
+          break;//changer phrase
+        case ELOOP : 
+          perror("contient une ref circulaire (a travers un lien symbolique"); 
+          break;
+        case ENAMETOOLONG :
+          perror("path trop long"); 
+          break;
+        case ENOENT : 
+          perror("fichier n'existe pas"); 
+          break;
+        case ENOTDIR : 
+          perror("Un élément de path n'est pas un repertoire"); 
+          break;
+        default : return 1;//Pour return 1 dans tous les cas non ?
+      }
+    }
+  return 0;
+}
