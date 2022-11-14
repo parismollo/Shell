@@ -245,10 +245,18 @@ int push_string(char* buffer, char* str) {
 int slash_pwd(char** args) {
   // Normalement -L par defaut. Pour l'instant -L ne fonctionne pas
   // Donc si pas d'argument on quitte. Pareil si l'arg est différent de "-P"
-  if(args[1] == NULL || strcmp(args[1], "-P") != 0) {
-    // Afficher une aide ? help() ?
-    exit_status = 1;
-    return exit_status;
+  if(args[1] == NULL || strcmp(args[1], "-L") == 0) {
+    const char* pwd = getenv("PWD");
+    if(pwd == NULL) {
+      perror("La variable d'environnement PWD n'existe pas");
+      return 1;
+    }
+    printf("%s\n", pwd);
+    return 0;
+  }
+  else if(strcmp(args[1], "-P") != 0) {
+    perror("Erreur argument. Essayer help\n");
+    return 1;
   }
 
   DIR* dir = NULL, *parent = NULL;
