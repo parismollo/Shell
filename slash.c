@@ -326,17 +326,14 @@ int slash_pwd(char** args) {
     return exit_status;
 }
 
-int slash_cd(char **args)
-{
-  
-  if (args[1] == NULL || ((!strcmp(args[1], "-P") || !strcmp(args[1], "-L")) && args[2] == NULL)) {
-    const char *cd = getenv("HOME");
-    if(cd == NULL){
-      perror("La variable d'environnement HOME n'existe pas");
-      return 1;
-    }
-    chdir(cd);
-    //sauf si on fait cd pour aller à racine ? Utiliser chroot ? Et pour . et .. ?
+
+
+
+
+
+
+
+ //sauf si on fait cd pour aller à racine ? Utiliser chroot ? Et pour . et .. ?
     //Dans le projet on veut home si pas arg et le précédent direct si -
     //Avec l'option -P, ref (et en particulier ses composantes ..) est interprétée au regard de la structure physique de l'arborescence.
     //Avec l'option -L (option par défaut), ref (et en particulier ses
@@ -344,31 +341,109 @@ int slash_cd(char **args)
     //interprétée comme b) si cela a du sens, et de manière physique sinon.
     //La valeur de retour est 0 en cas de succès, 1 en cas d'échec.
     //OLDPWD
-  } else if(strcmp(args[1], "-P") == 0) {//args[1] ou args[2] ou les 2 peuvent être - ?
+    //Completer le error :
+    //Faire les error pour setenv
+    //Commenter et aérer le code
+    //Faire les cas too many arguments
 
-    } else if(strcmp(args[1], "-") == 0){
-      
-    } else if (chdir(args[1]) != 0) {//chdir ou fchdir ? 
-     //setenv
-      perror("");//Utiliser errno
-      switch(errno){
-        case EACCES : 
-          perror("unauthorized access for one element of the path"); 
-          break;//changer phrase
-        case ELOOP : 
-          perror("contient une ref circulaire (a travers un lien symbolique"); 
-          break;
-        case ENAMETOOLONG :
-          perror("path trop long"); 
-          break;
-        case ENOENT : 
-          perror("fichier n'existe pas"); 
-          break;
-        case ENOTDIR : 
-          perror("Un élément de path n'est pas un repertoire"); 
-          break;
-        default : return 1;//Pour return 1 dans tous les cas non ?
+int slash_cd(char **args)
+{
+
+  const char* pwd = getenv("PWD");
+  if(pwd == NULL)
+    goto error;
+  const char* old_pwd = getenv("OLDPWD");
+  if(old_pwd == NULL)
+    goto error;
+  const char* home = getenv("HOME");//Pour utiliser goto error
+  if(home == NULL)
+    goto error;
+
+  /*if (args[1] == NULL) {
+    if(chdir(home) != 0)
+      goto error;
+    setenv("OLDPWD", pwd, 1);
+    setenv("PWD", home, 1);
+    */
+
+  if(args[3] != NULL){
+    printf("cd : too many arguments, try help\n");//A mettre dans error
+    return 1;
+  }
+
+  else if(args[2] != NULL){
+    if(strcmp(args[1], "-P") == 0) {
+      if(chdir(args[2]) != 0)
+        goto error;
+    } else if(strcmp(args[1], "-L") == 0){
+      if(chdir(args[2]) != 0){
+        goto error;
       }
-    }
+      setenv("OLDPWD", pwd, 1);
+      pwd = getenv("PWD");
+      if(pwd == NULL)
+        goto error;
+      setenv("PWD", pwd, 1);
+    } else {
+        printf("cd : too many arguments, try help\n");
+        return 1;
+    } 
+  }
+
+  else if((args[1] == NULL) || (strcmp(args[1], "-P") == 0) || (strcmp(args[1], "-L") == 0)) {//args[1] ou args[2] ou les 2 peuvent être - ?
+    if(chdir(home) !=0)//Vraiment env même avec -P ???
+      goto error;
+    setenv("OLDPWD", pwd, 1);
+    setenv("PWD", home, 1);
+    if(chdir(old_pwd) != 0)
+      goto error;
+    setenv("OLDPWD", pwd, 1);
+    setenv("PWD", old_pwd, 1);
+
+  } else if(!strcmp(args[1], "-" )){
+    if(chdir(old_pwd) != 0)
+      goto error;
+    setenv("OLDPWD", pwd, 1);
+    setenv("PWD", old_pwd, 1);
+
+  } else {
+    if(chdir(args[1]) != 0)
+      goto error;
+    setenv("OLDPWD", pwd, 1);
+    pwd = getenv("PWD");
+    if(pwd == NULL)
+      goto error;
+    setenv("PWD", pwd, 1);
+  }
+
   return 0;
+
+  error :
+    if(pwd == NULL){
+      perror("La variable d'environnement PWD n'existe pas\n");
+    }
+    if(home == NULL){
+      perror("La variable d'environnement n'existe pas\n");
+    }
+    if(old_pwd == NULL){
+      perror("La variable d'environnement OLDPWD n'existe pas\n");
+    }
+    switch(errno){
+          case EACCES : 
+            perror("unauthorized access for one element of the path"); 
+            break;//changer phrase
+          case ELOOP : 
+            perror("contient une ref circulaire (a travers un lien symbolique"); 
+            break;
+          case ENAMETOOLONG :
+            perror("path trop long"); 
+            break;
+          case ENOENT : 
+            perror("fichier n'existe pas"); 
+            break;
+          case ENOTDIR : 
+            perror("Un élément de path n'est pas un repertoire"); 
+            break;
+      }
+      return 1;
 }
