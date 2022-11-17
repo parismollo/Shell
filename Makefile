@@ -12,7 +12,7 @@ OBJ = slash.o
 # Remove comment above if you wish to remove prints in terminal.
 # $(VERBOSE).SILENT:
 
-all: clean slash run
+all: clean slash
 
 # create executable file using obj file.
 slash: $(OBJ)
