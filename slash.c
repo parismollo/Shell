@@ -16,6 +16,9 @@ static char * get_color(int n);
 static char * get_exit_status();
 static char * get_shorter_path(char * string, int max_size);
 
+static int PRINT_PWD = 1; // Variable auxiliaire pour cd
+static char PATH[PATH_MAX];
+
 // Colors
 static char *colors[] = {
   "\033[32m", // green
@@ -330,7 +333,11 @@ int slash_pwd(char** args) {
 
   closedir(dir);
 
-  printf("%s\n", buffer);
+  if(PRINT_PWD)
+    printf("%s\n", buffer);
+  else
+    strcpy(PATH, buffer);
+
   free(buffer);
   return 0;
 
@@ -424,13 +431,6 @@ char * get_color(int n) {
   }
 }
 
-
-
-
-
-
-
-
  //sauf si on fait cd pour aller à racine ? Utiliser chroot ? Et pour . et .. ?
     //Dans le projet on veut home si pas arg et le précédent direct si -
     //Avec l'option -P, ref (et en particulier ses composantes ..) est interprétée au regard de la structure physique de l'arborescence.
@@ -443,6 +443,10 @@ char * get_color(int n) {
     //Faire les error pour setenv
     //Commenter et aérer le code
     //Faire les cas too many arguments
+
+// char* concat_path(char* path) {
+
+// }
 
 int slash_cd(char **args)
 {
@@ -469,23 +473,34 @@ int slash_cd(char **args)
     return 1;
   }
 
-  else if(args[2] != NULL){
+  else if(args[2] != NULL) {
+    if(strcmp(args[1], "-P") != 0 && strcmp(args[1], "-L") != 0) {
+      printf("cd : too many arguments, try help\n");
+      return 1;
+    }
+    setenv("OLDPWD", pwd, 1);
+
+    if(chdir(args[2]) != 0)
+      goto error;
+
     if(strcmp(args[1], "-P") == 0) {
-      if(chdir(args[2]) != 0)
+      PRINT_PWD = 0;
+      char* tokens[2] = {"pwd", "-P"};
+      slash_pwd(tokens);
+      PRINT_PWD = 1;
+      setenv("PWD", PATH, 1);
+    }
+    else {
+      char* path = malloc(strlen(pwd) + 1 + strlen(args[2]) + 1);
+      if(path == NULL)
         goto error;
-    } else if(strcmp(args[1], "-L") == 0){
-      if(chdir(args[2]) != 0){
-        goto error;
-      }
-      setenv("OLDPWD", pwd, 1);
-      pwd = getenv("PWD");
-      if(pwd == NULL)
-        goto error;
-      setenv("PWD", pwd, 1);
-    } else {
-        printf("cd : too many arguments, try help\n");
-        return 1;
-    } 
+      strcpy(path, pwd);
+      strcat(path, "/");
+      strcat(path, args[2]);
+      
+      setenv("PWD", path, 1);
+      free(path);
+    }
   }
 
   else if((args[1] == NULL) || (strcmp(args[1], "-P") == 0) || (strcmp(args[1], "-L") == 0)) {//args[1] ou args[2] ou les 2 peuvent être - ?
@@ -493,10 +508,6 @@ int slash_cd(char **args)
       goto error;
     setenv("OLDPWD", pwd, 1);
     setenv("PWD", home, 1);
-    if(chdir(old_pwd) != 0)
-      goto error;
-    setenv("OLDPWD", pwd, 1);
-    setenv("PWD", old_pwd, 1);
 
   } else if(!strcmp(args[1], "-" )){
     if(chdir(old_pwd) != 0)
@@ -505,13 +516,15 @@ int slash_cd(char **args)
     setenv("PWD", old_pwd, 1);
 
   } else {
-    if(chdir(args[1]) != 0)
-      goto error;
-    setenv("OLDPWD", pwd, 1);
-    pwd = getenv("PWD");
-    if(pwd == NULL)
-      goto error;
-    setenv("PWD", pwd, 1);
+      char* path = malloc(strlen(pwd) + 1 + strlen(args[1]) + 1);
+      if(path == NULL)
+        goto error;
+      strcpy(path, pwd);
+      strcat(path, "/");
+      strcat(path, args[1]);
+
+      setenv("PWD", path, 1);
+      free(path);
   }
 
   return 0;
