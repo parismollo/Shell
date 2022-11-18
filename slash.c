@@ -98,7 +98,7 @@ void slash_read() {
   // [TODO] Display path on prompt, see project doc. Above temporary solution:
   // char * prompt_path = "> ";
   char * prompt_path = slash_get_prompt();
-
+  rl_outstream = stderr;
   // Read line from prompt and update prompt line variable:
   prompt_line = readline(prompt_path);
   // Detects EOF
@@ -472,6 +472,54 @@ char * get_color(int n) {
 
 // }
 
+char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
+
+  char* path = malloc(strlen(p)+1);
+  if(path == NULL) {
+    // perror
+    exit(1);
+  }
+  strcpy(path, p);
+
+  char* buffer = malloc(PATH_MAX);
+  if(buffer == NULL) {
+    // perror()
+    free(path);
+    exit(1);
+  }
+  memset(buffer, 0, PATH_MAX);
+
+  char* ptr = strtok(path, "/");
+  while(ptr != NULL) {
+    push_string(buffer, ptr);
+    ptr = strtok(NULL, "/");
+  }
+  int count = 0;
+  ptr = strtok(path, "/");
+  while(ptr != NULL) {
+    if(strcmp(ptr, ".") == 0)
+      ;
+    else if(strcmp(ptr, "..") == 0) {
+      count++;
+    } else {
+      if(count > 0) {
+        count--;
+      } else {
+        push_string(buffer, ptr);
+      }
+    }
+    
+    ptr = strtok(NULL, "/");
+  }
+
+  if(buffer[0] != '/')
+    buffer[0] = '/';
+
+  free(path);
+
+  return buffer;
+}
+
 int slash_cd(char **args)
 {
 
@@ -507,7 +555,7 @@ int slash_cd(char **args)
     if(chdir(args[2]) != 0)
       goto error;
 
-    if(strcmp(args[1], "-P") == 0) {
+    if(strcmp(args[1], "-P") == 0 || strcmp(args[1], "..")) { // TEMPORARY
       PRINT_PWD = 0;
       char* tokens[2] = {"pwd", "-P"};
       slash_pwd(tokens);
@@ -518,12 +566,19 @@ int slash_cd(char **args)
       char* path = malloc(strlen(pwd) + 1 + strlen(args[2]) + 1);
       if(path == NULL)
         goto error;
-      strcpy(path, pwd);
-      strcat(path, "/");
-      strcat(path, args[2]);
-      
+      if(strcmp(pwd, "/") == 0) {
+        strcpy(path, pwd);
+        strcat(path, "/");
+        strcat(path, args[2]);
+      }
+      else {
+        strcpy(path, args[2]);
+      }
+
+      char* ptr = real_path(path);
       setenv("PWD", path, 1);
       free(path);
+      free(ptr);
     }
   }
 
@@ -539,16 +594,24 @@ int slash_cd(char **args)
     setenv("OLDPWD", pwd, 1);
     setenv("PWD", old_pwd, 1);
 
-  } else {
-      char* path = malloc(strlen(pwd) + 1 + strlen(args[1]) + 1);
-      if(path == NULL)
-        goto error;
+  }
+  else {
+    char* path = malloc(strlen(pwd) + 1 + strlen(args[1]) + 1);
+    if(path == NULL)
+      goto error;
+    if(strcmp(pwd, "/") == 0) {
       strcpy(path, pwd);
       strcat(path, "/");
       strcat(path, args[1]);
+    }
+    else {
+      strcpy(path, args[1]);
+    }
 
-      setenv("PWD", path, 1);
-      free(path);
+    char* ptr = real_path(path);
+    setenv("PWD", path, 1);
+    free(path);
+    free(ptr);
   }
 
   return 0;
