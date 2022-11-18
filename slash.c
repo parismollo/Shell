@@ -370,12 +370,17 @@ int slash_pwd(char** args) {
 char * slash_get_prompt() {
   // Taille maximale (sans couleurs) de 30 Caractères
   // 10 for two colors + 5 for status + 1 pour dollar + 25 Path + 3 espaces + 1 (\0)
-  char *prompt = malloc(sizeof(char) * (45)); 
+  char *prompt = malloc(sizeof(char) * (45));
+  if(prompt == NULL) {
+    perror("Error malloc slash_get_prompt");
+    return NULL;
+  }
   memset(prompt, '\0', 45);
   // 2. Logical path
   char * path = getenv("PWD");
   // Handle Null
   if(path == NULL) {
+    free(prompt);
     return "> ";
   }
   
@@ -481,21 +486,32 @@ char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
   }
   strcpy(path, p);
 
-  char* buffer = malloc(PATH_MAX);
-  if(buffer == NULL) {
-    // perror()
+  char* buf1 = malloc(PATH_MAX);
+  if(buf1 == NULL) {
+    perror("Erreur malloc real_path");
     free(path);
-    exit(1);
+    return NULL;
   }
-  memset(buffer, 0, PATH_MAX);
+  memset(buf1, 0, PATH_MAX);
 
   char* ptr = strtok(path, "/");
   while(ptr != NULL) {
-    push_string(buffer, ptr);
+    push_string(buf1, ptr);
     ptr = strtok(NULL, "/");
   }
+  free(path);
+  // printf("BUFFER 1 : %s\n", buf1);
+
+  char* buf2 = malloc(PATH_MAX);
+  if(buf2 == NULL) {
+    perror("Erreur malloc real_path");
+    free(buf1);
+    return NULL;
+  }
+  memset(buf2, 0, PATH_MAX);
+
   int count = 0;
-  ptr = strtok(path, "/");
+  ptr = strtok(buf1, "/");
   while(ptr != NULL) {
     if(strcmp(ptr, ".") == 0)
       ;
@@ -505,19 +521,18 @@ char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
       if(count > 0) {
         count--;
       } else {
-        push_string(buffer, ptr);
+        push_string(buf2, ptr);
       }
     }
     
     ptr = strtok(NULL, "/");
   }
+  free(buf1);
 
-  if(buffer[0] != '/')
-    buffer[0] = '/';
-
-  free(path);
-
-  return buffer;
+  if(buf2[0] != '/')
+    buf2[0] = '/';
+  // printf("BUFFER 2 : %s\n", buf2);
+  return buf2;
 }
 
 int slash_cd(char **args)
@@ -528,23 +543,15 @@ int slash_cd(char **args)
     goto error;
   const char* old_pwd = getenv("OLDPWD");
   if(old_pwd == NULL)
-    goto error;
-  const char* home = getenv("HOME");//Pour utiliser goto error
+    old_pwd = pwd; // Temporaire. A vérifier. Si on met goto error: on lance un terminal et on execute directement ./slash. Pas de OldPWD et cd impossible.
+  const char* home = getenv("HOME"); // Pour utiliser goto error
   if(home == NULL)
     goto error;
 
-  /*if (args[1] == NULL) {
-    if(chdir(home) != 0)
-      goto error;
-    setenv("OLDPWD", pwd, 1);
-    setenv("PWD", home, 1);
-    */
-
   if(args[3] != NULL){
-    printf("cd : too many arguments, try help\n");//A mettre dans error
+    printf("cd : too many arguments, try help\n"); // A mettre dans error
     return 1;
   }
-
   else if(args[2] != NULL) {
     if(strcmp(args[1], "-P") != 0 && strcmp(args[1], "-L") != 0) {
       printf("cd : too many arguments, try help\n");
@@ -555,7 +562,7 @@ int slash_cd(char **args)
     if(chdir(args[2]) != 0)
       goto error;
 
-    if(strcmp(args[1], "-P") == 0 || strcmp(args[1], "..")) { // TEMPORARY
+    if(strcmp(args[1], "-P") == 0) {
       PRINT_PWD = 0;
       char* tokens[2] = {"pwd", "-P"};
       slash_pwd(tokens);
@@ -563,55 +570,68 @@ int slash_cd(char **args)
       setenv("PWD", PATH, 1);
     }
     else {
+      if(chdir(args[2]) != 0)
+        goto error;
       char* path = malloc(strlen(pwd) + 1 + strlen(args[2]) + 1);
       if(path == NULL)
         goto error;
-      if(strcmp(pwd, "/") == 0) {
+      if(*args[2] == '/') {
+        strcpy(path, args[2]);
+      }
+      else {
         strcpy(path, pwd);
         strcat(path, "/");
         strcat(path, args[2]);
       }
-      else {
-        strcpy(path, args[2]);
-      }
 
-      char* ptr = real_path(path);
-      setenv("PWD", path, 1);
+      char* realpath = real_path(path);
+      if(realpath == NULL) {
+        free(path);
+        fprintf(stderr, "Erreur avec realpath dans slash_cd\n");
+        return 1;
+      }
+      // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
+      setenv("PWD", realpath, 1);
       free(path);
-      free(ptr);
+      free(realpath);
     }
   }
-
   else if((args[1] == NULL) || (strcmp(args[1], "-P") == 0) || (strcmp(args[1], "-L") == 0)) {//args[1] ou args[2] ou les 2 peuvent être - ?
-    if(chdir(home) !=0)//Vraiment env même avec -P ???
+    if(chdir(home) != 0)
       goto error;
     setenv("OLDPWD", pwd, 1);
     setenv("PWD", home, 1);
-
-  } else if(!strcmp(args[1], "-" )){
+  } else if(strcmp(args[1], "-" ) == 0) {
     if(chdir(old_pwd) != 0)
       goto error;
     setenv("OLDPWD", pwd, 1);
     setenv("PWD", old_pwd, 1);
-
   }
   else {
+    if(chdir(args[1]) != 0)
+      goto error;
     char* path = malloc(strlen(pwd) + 1 + strlen(args[1]) + 1);
     if(path == NULL)
       goto error;
-    if(strcmp(pwd, "/") == 0) {
+    if(*args[1] == '/') { // On vérifie si le chemin est absolu
+      strcpy(path, args[1]);
+    }
+    else { // Si le chemin est relatif
       strcpy(path, pwd);
       strcat(path, "/");
       strcat(path, args[1]);
     }
-    else {
-      strcpy(path, args[1]);
-    }
 
-    char* ptr = real_path(path);
-    setenv("PWD", path, 1);
+    char* realpath = real_path(path);
+    if(realpath == NULL) {
+        free(path);
+        fprintf(stderr, "Erreur avec realpath dans slash_cd\n");
+        return 1;
+      }
+    // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
+    setenv("PWD", realpath, 1);
     free(path);
-    free(ptr);
+    free(realpath);
   }
 
   return 0;
