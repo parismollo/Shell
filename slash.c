@@ -132,14 +132,23 @@ void slash_exec(char **tokens) {
   
   // Loop over all builtin methods.
   int library_size = sizeof(library) / sizeof(library[0]);
+  int no_command = 1;
   for (int i = 0; i < library_size; i++) {
 
     // If we find a match, execute with arguments
-    if(!(strcmp(tokens[0], library[i].name))) {
+    if(strcmp(tokens[0], library[i].name) == 0) {
+      no_command = 0;
       library[i].function(tokens);
       if(!exec_loop) // On sort directement si on vient d'executer "exit" (ou une autre fonction qui doit stopper le programme)
         return;
     }
+  }
+  // On vérifie si au moins 1 commande a été executé. Si ce n'est pas le cas,
+  // c'est que la commande dans tokens[0] n'existe pas.
+  if(no_command) {
+      exit_status = 127;
+      fprintf(stderr, "slash: commande introuvable\n");
+      return;
   }
 }
 
@@ -156,10 +165,7 @@ int main() {
       if(tokens) {slash_exec(tokens);}
       free(tokens);
     }
-    // Step 4: Clean memory:
-    ////////////////////////////////////////////////
-    // ATTENTION PROBLEME DE MEMOIRE ICI A REGLER //
-    ////////////////////////////////////////////////
+    
     free(prompt_line);
   } 
   // Clear readline history:
