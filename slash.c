@@ -10,11 +10,14 @@
 #include <unistd.h> 
 #include <errno.h>
 #include "slash.h"
+#include <signal.h>
+
 
 // Static functions
 static char * get_color(int n);
 static char * get_exit_status();
 static char * get_shorter_path(char * string, int max_size);
+static void catchSignal(int signal); 
 
 // Colors
 static char *colors[] = {
@@ -36,13 +39,18 @@ static command library[] = {
   {"cd", slash_cd}
 };
 
+void catchSignal(int signal) {
+  exit_status = signal;
+}
+
 int slash_help(char **args) {
   char *help_text =
-    "\nSLASH LIB\n"
-    "---------------\n"
+    "\n\033[34mSLASH LIB\033[00m\n"
+    "\033[32m---------------\033[00m\n"
     "pwd [-L | -P]\n"
-    "exit [val]"
-    "\n---------------\n";
+    "exit [val]\n"
+    "cd [-L | -P] [ref | -]"
+    "\n\033[32m---------------\033[00m\n";
   printf("%s", help_text);
   return 0;
 }
@@ -90,9 +98,11 @@ void slash_read() {
 
   // Read line from prompt and update prompt line variable:
   prompt_line = readline(prompt_path);
+  // Detects EOF
   if(prompt_line == NULL) {
+    exit_status = 130;
     exec_loop = 0;
-    printf("EOF Detected\n");
+    printf("exit\n");
     return;
   }
 
@@ -138,6 +148,8 @@ char **slash_interpret(char *line) {
   }
   // We set to null the last element so we know when to stop while looping.
   tokens[len] = NULL;
+  // Temporary
+  for(int i = len; i<100; i++) {tokens[i] = NULL;}
   return tokens;
 }
 
@@ -162,7 +174,7 @@ void slash_exec(char **tokens) {
 }
 
 int main() {
-
+  signal(SIGINT, catchSignal);
   while(exec_loop) {
     // Step 1: Read input and update prompt line variable:
     slash_read();
@@ -343,10 +355,10 @@ int slash_pwd(char** args) {
 
 
 char * slash_get_prompt() {
-  // 1. TODO: Taille maximale (sans couleurs) de 30 Caractères
-  char *prompt = malloc(sizeof(char) * (100)); 
-  memset(prompt, '\0', 100);
-  // 10 for two colors + 5 for status + 1 pour dollar + 26 Path + 3 espaces 
+  // Taille maximale (sans couleurs) de 30 Caractères
+  // 10 for two colors + 5 for status + 1 pour dollar + 25 Path + 3 espaces + 1 (\0)
+  char *prompt = malloc(sizeof(char) * (45)); 
+  memset(prompt, '\0', 45);
   // 2. Logical path
   char * path = getenv("PWD");
   // Handle Null
@@ -402,7 +414,17 @@ char * get_shorter_path(char * string, int max_path_size) {
 
 char * get_exit_status() {
   char * str = malloc(sizeof(char) * 4);
-  sprintf(str, "%d", exit_status);
+  switch (exit_status) {
+    case 2:
+      strcpy(str,"SIG");
+      break;
+    case 130:
+      strcpy(str, "EOF");
+      break;
+    default:
+      sprintf(str, "%d", exit_status);
+      break;
+  }
   return str;
 }
 
@@ -412,6 +434,8 @@ char * get_color(int n) {
   case 0:
     return colors[0];
   case 1:
+    return colors[1];
+  case 2:
     return colors[1];
   default:
     return colors[4];
