@@ -548,7 +548,7 @@ int slash_cd(char **args)
   if(home == NULL)
     goto error;
 
-  if(args[3] != NULL){
+  if(args[3] != NULL) {
     printf("cd : too many arguments, try help\n"); // A mettre dans error
     return 1;
   }
@@ -557,10 +557,10 @@ int slash_cd(char **args)
       printf("cd : too many arguments, try help\n");
       return 1;
     }
-    setenv("OLDPWD", pwd, 1);
 
     if(chdir(args[2]) != 0)
       goto error;
+    setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
 
     if(strcmp(args[1], "-P") == 0) {
       PRINT_PWD = 0;
@@ -570,8 +570,6 @@ int slash_cd(char **args)
       setenv("PWD", PATH, 1);
     }
     else {
-      if(chdir(args[2]) != 0)
-        goto error;
       char* path = malloc(strlen(pwd) + 1 + strlen(args[2]) + 1);
       if(path == NULL)
         goto error;
@@ -586,14 +584,31 @@ int slash_cd(char **args)
 
       char* realpath = real_path(path);
       if(realpath == NULL) {
-        free(path);
-        fprintf(stderr, "Erreur avec realpath dans slash_cd\n");
-        return 1;
+          free(path);
+          fprintf(stderr, "Erreur avec realpath dans slash_cd\n");
+          return 1;
       }
-      // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
-      setenv("PWD", realpath, 1);
+
+      if(chdir(realpath) != 0) { // Si chdir échoue, alors on interprete le path de manière physique
+        if(chdir(args[2]) != 0) { // On interprete de manière physique (-P)
+          free(path);
+          free(realpath);
+          goto error;
+        }
+        PRINT_PWD = 0;
+        char* tokens[2] = {"pwd", "-P"};
+        slash_pwd(tokens);
+        PRINT_PWD = 1;
+        setenv("PWD", PATH, 1);
+      }
+      else {
+        // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
+        setenv("PWD", realpath, 1); // De même pour pwd
+      }
       free(path);
       free(realpath);
+
+      setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
     }
   }
   else if((args[1] == NULL) || (strcmp(args[1], "-P") == 0) || (strcmp(args[1], "-L") == 0)) {//args[1] ou args[2] ou les 2 peuvent être - ?
@@ -608,8 +623,6 @@ int slash_cd(char **args)
     setenv("PWD", old_pwd, 1);
   }
   else {
-    if(chdir(args[1]) != 0)
-      goto error;
     char* path = malloc(strlen(pwd) + 1 + strlen(args[1]) + 1);
     if(path == NULL)
       goto error;
@@ -627,11 +640,28 @@ int slash_cd(char **args)
         free(path);
         fprintf(stderr, "Erreur avec realpath dans slash_cd\n");
         return 1;
+    }
+
+    if(chdir(realpath) != 0) { // Si chdir échoue, alors on interprete le path de manière physique
+      if(chdir(args[1]) != 0) { // On interprete de manière physique (-P)
+        free(path);
+        free(realpath);
+        goto error;
       }
-    // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
-    setenv("PWD", realpath, 1);
+      PRINT_PWD = 0;
+      char* tokens[2] = {"pwd", "-P"};
+      slash_pwd(tokens);
+      PRINT_PWD = 1;
+      setenv("PWD", PATH, 1);
+    }
+    else {
+      // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
+      setenv("PWD", realpath, 1); // De même pour pwd
+    }
     free(path);
     free(realpath);
+
+    setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
   }
 
   return 0;
