@@ -103,9 +103,9 @@ void slash_read() {
   prompt_line = readline(prompt_path);
   // Detects EOF
   if(prompt_line == NULL) {
-    exit_status = 130;
+    exit_status = 0;
     exec_loop = 0;
-    printf("exit\n");
+    free(prompt_path);
     return;
   }
 
@@ -436,9 +436,6 @@ char * get_exit_status() {
     case 2:
       strcpy(str,"SIG");
       break;
-    case 130:
-      strcpy(str, "EOF");
-      break;
     default:
       sprintf(str, "%d", exit_status);
       break;
@@ -452,8 +449,8 @@ char * get_color(int n) {
   case 0:
     return colors[0];
   case 1:
-    return colors[1];
   case 2:
+  case 127:
     return colors[1];
   default:
     return colors[4];
