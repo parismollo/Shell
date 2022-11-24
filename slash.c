@@ -457,23 +457,13 @@ char * get_color(int n) {
   }
 }
 
- //sauf si on fait cd pour aller à racine ? Utiliser chroot ? Et pour . et .. ?
-    //Dans le projet on veut home si pas arg et le précédent direct si -
-    //Avec l'option -P, ref (et en particulier ses composantes ..) est interprétée au regard de la structure physique de l'arborescence.
-    //Avec l'option -L (option par défaut), ref (et en particulier ses
-    //composantes ..) est interprétée de manière logique (a/../b est
-    //interprétée comme b) si cela a du sens, et de manière physique sinon.
-    //La valeur de retour est 0 en cas de succès, 1 en cas d'échec.
-    //OLDPWD
+    //Factoriser code 
+    //Commenter code
     //Completer le error :
     //Faire les error pour setenv
-    //Commenter et aérer le code
-    //Faire les cas too many arguments
+    //Faire plusieurs fichiers .c  
 
-// char* concat_path(char* path) {
-
-// }
-
+//real_path permet d'obtenir le chemin absolue avec les liens symboliques et propre (sans .. ou . ou ///)
 char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
 
   char* path = malloc(strlen(p)+1);
@@ -495,7 +485,7 @@ char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
   while(ptr != NULL) {
     push_string(buf1, ptr);
     ptr = strtok(NULL, "/");
-  }
+  } // On a ptr qui est path mais inversé : /rep1/rep2 devient /rep2/rep1
   free(path);
   // printf("BUFFER 1 : %s\n", buf1);
 
@@ -508,17 +498,17 @@ char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
   memset(buf2, 0, PATH_MAX);
 
   int count = 0;
-  ptr = strtok(buf1, "/");
-  while(ptr != NULL) {
-    if(strcmp(ptr, ".") == 0)
+  ptr = strtok(buf1, "/"); // On separe la chaine ptr selon les "/"
+  while(ptr != NULL) { // On regarde chaque element
+    if(strcmp(ptr, ".") == 0)//Si c'est "." on ne l'ajoute pas à buf2
       ;
-    else if(strcmp(ptr, "..") == 0) {
-      count++;
+    else if(strcmp(ptr, "..") == 0) {//Si c'est ".." on ne l'ajoute pas
+      count++;//et on retient que l'on ne doit pas ajouter le prochaine element different de "." et ".."
     } else {
-      if(count > 0) {
+      if(count > 0) {//On ignore l'element car il y avait ".." dans le chemin absolue après lui (et donc avant dans ptr)
         count--;
       } else {
-        push_string(buf2, ptr);
+        push_string(buf2, ptr);//On ajoute l'element à buf2
       }
     }
     
@@ -527,9 +517,81 @@ char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
   free(buf1);
 
   if(buf2[0] != '/')
-    buf2[0] = '/';
+    buf2[0] = '/';//buf2 est un chemin absolue
   // printf("BUFFER 2 : %s\n", buf2);
-  return buf2;
+  return buf2;//buf2 designe donc le chemin absolue menant au repertoire courant, contenant les liens symboliques
+}
+
+void error_chdir(){
+  switch(errno){
+    case EACCES : 
+      perror("unauthorized access for one element of the path"); 
+      break;//changer phrase
+    case ELOOP : 
+      perror("contient une ref circulaire (a travers un lien symbolique"); 
+      break;
+    case ENAMETOOLONG :
+      perror("path trop long"); 
+      break;
+    case ENOENT : 
+      perror("fichier n'existe pas"); 
+      break;
+    case ENOTDIR : 
+      perror("Un élément de path n'est pas un repertoire"); 
+      break;
+  }
+}
+
+int slash_cd_aux(char option, const char* pwd, char *args) {
+  if(option == 'P') {
+    if(chdir(args) != 0)
+      goto error;
+    setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
+    PRINT_PWD = 0;
+    char* tokens[2] = {"pwd", "-P"};//On recupère le chemin absolue menant au repertoire courant sans les liens symboliques
+    slash_pwd(tokens);
+    PRINT_PWD = 1;
+    setenv("PWD", PATH, 1);
+    return 0;
+  }
+  int ret = 0;
+  char* path = malloc(strlen(pwd) + 1 + strlen(args) + 1);
+  if(path == NULL) {
+    perror("Erreur malloc slash_cd_aux");
+    return 1;
+  }
+  if(*args == '/') {
+    strcpy(path, args);
+  }
+  else {
+    strcpy(path, pwd);
+    strcat(path, "/");
+    strcat(path, args);
+  }
+  char* realpath = real_path(path);
+  if(realpath == NULL) {
+    free(path);
+    fprintf(stderr, "Erreur avec realpath dans slash_cd_aux\n");
+    return 1;
+  }
+  if(chdir(realpath) != 0) { // Si chdir échoue, alors on interprete le path de manière physique
+    ret = slash_cd_aux('P', pwd, args);
+  }
+  else {
+    // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
+    setenv("PWD", realpath, 1); // De même pour pwd
+  }
+  free(path);
+  free(realpath);
+  setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
+  
+  return ret;
+
+  error :
+    if(pwd == NULL)
+      perror("La variable d'environnement PWD n'existe pas\n");
+    error_chdir();
+    return 1;
 }
 
 int slash_cd(char **args)
@@ -555,58 +617,10 @@ int slash_cd(char **args)
       return 1;
     }
 
-    if(chdir(args[2]) != 0)
-      goto error;
-    setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
-
-    if(strcmp(args[1], "-P") == 0) {
-      PRINT_PWD = 0;
-      char* tokens[2] = {"pwd", "-P"};
-      slash_pwd(tokens);
-      PRINT_PWD = 1;
-      setenv("PWD", PATH, 1);
-    }
-    else {
-      char* path = malloc(strlen(pwd) + 1 + strlen(args[2]) + 1);
-      if(path == NULL)
-        goto error;
-      if(*args[2] == '/') {
-        strcpy(path, args[2]);
-      }
-      else {
-        strcpy(path, pwd);
-        strcat(path, "/");
-        strcat(path, args[2]);
-      }
-
-      char* realpath = real_path(path);
-      if(realpath == NULL) {
-          free(path);
-          fprintf(stderr, "Erreur avec realpath dans slash_cd\n");
-          return 1;
-      }
-
-      if(chdir(realpath) != 0) { // Si chdir échoue, alors on interprete le path de manière physique
-        if(chdir(args[2]) != 0) { // On interprete de manière physique (-P)
-          free(path);
-          free(realpath);
-          goto error;
-        }
-        PRINT_PWD = 0;
-        char* tokens[2] = {"pwd", "-P"};
-        slash_pwd(tokens);
-        PRINT_PWD = 1;
-        setenv("PWD", PATH, 1);
-      }
-      else {
-        // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
-        setenv("PWD", realpath, 1); // De même pour pwd
-      }
-      free(path);
-      free(realpath);
-
-      setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
-    }
+    if(strcmp(args[1], "-P") == 0)
+      return slash_cd_aux('P', pwd, args[2]);
+    else
+      return slash_cd_aux('L', pwd, args[2]);
   }
   else if((args[1] == NULL) || (strcmp(args[1], "-P") == 0) || (strcmp(args[1], "-L") == 0)) {//args[1] ou args[2] ou les 2 peuvent être - ?
     if(chdir(home) != 0)
@@ -620,75 +634,18 @@ int slash_cd(char **args)
     setenv("PWD", old_pwd, 1);
   }
   else {
-    char* path = malloc(strlen(pwd) + 1 + strlen(args[1]) + 1);
-    if(path == NULL)
-      goto error;
-    if(*args[1] == '/') { // On vérifie si le chemin est absolu
-      strcpy(path, args[1]);
-    }
-    else { // Si le chemin est relatif
-      strcpy(path, pwd);
-      strcat(path, "/");
-      strcat(path, args[1]);
-    }
-
-    char* realpath = real_path(path);
-    if(realpath == NULL) {
-        free(path);
-        fprintf(stderr, "Erreur avec realpath dans slash_cd\n");
-        return 1;
-    }
-
-    if(chdir(realpath) != 0) { // Si chdir échoue, alors on interprete le path de manière physique
-      if(chdir(args[1]) != 0) { // On interprete de manière physique (-P)
-        free(path);
-        free(realpath);
-        goto error;
-      }
-      PRINT_PWD = 0;
-      char* tokens[2] = {"pwd", "-P"};
-      slash_pwd(tokens);
-      PRINT_PWD = 1;
-      setenv("PWD", PATH, 1);
-    }
-    else {
-      // printf("PATH: %s\nREAL_PATH: %s\n", path, realpath);
-      setenv("PWD", realpath, 1); // De même pour pwd
-    }
-    free(path);
-    free(realpath);
-
-    setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
+    return slash_cd_aux('L', pwd, args[1]);
   }
 
   return 0;
 
   error :
-    if(pwd == NULL){
+    if(pwd == NULL)
       perror("La variable d'environnement PWD n'existe pas\n");
-    }
-    if(home == NULL){
-      perror("La variable d'environnement n'existe pas\n");
-    }
-    if(old_pwd == NULL){
+    if(home == NULL)
+      perror("La variable d'environnement HOME n'existe pas\n");
+    if(old_pwd == NULL)
       perror("La variable d'environnement OLDPWD n'existe pas\n");
-    }
-    switch(errno){
-          case EACCES : 
-            perror("unauthorized access for one element of the path"); 
-            break;//changer phrase
-          case ELOOP : 
-            perror("contient une ref circulaire (a travers un lien symbolique"); 
-            break;
-          case ENAMETOOLONG :
-            perror("path trop long"); 
-            break;
-          case ENOENT : 
-            perror("fichier n'existe pas"); 
-            break;
-          case ENOTDIR : 
-            perror("Un élément de path n'est pas un repertoire"); 
-            break;
-      }
-      return 1;
+    error_chdir();
+    return 1;
 }
