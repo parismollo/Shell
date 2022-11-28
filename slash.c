@@ -119,7 +119,7 @@ void slash_read() {
 char **slash_interpret(char *line) {
   int len = 0;
 
-  // We need an array os strings, so a pointer for storing one string and a double pointer to store multiple.
+  // We need an array of strings, so a pointer for storing one string and a double pointer to store multiple.
   char **tokens = malloc(sizeof(char *) * MAX_ARGS_NUMBER + 1);
   if(tokens == NULL) {exec_loop = 0; return NULL;}
 
@@ -176,6 +176,9 @@ void slash_exec(char **tokens) {
         return;
     }
   }
+
+  
+
   // On vérifie si au moins 1 commande a été executé. Si ce n'est pas le cas,
   // c'est que la commande dans tokens[0] n'existe pas.
   if(no_command) {
@@ -522,7 +525,7 @@ char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
   return buf2;//buf2 designe donc le chemin absolue menant au repertoire courant, contenant les liens symboliques
 }
 
-void error_chdir(){
+void error_chdir(){//Certaines des erreurs les plus courante lorsqu'on utilise chdir
   switch(errno){
     case EACCES : 
       perror("unauthorized access for one element of the path"); 
@@ -542,18 +545,21 @@ void error_chdir(){
   }
 }
 
+//Cette fonction va se deplacer depuis le repertoire courant pwd dans le dossier args
+//Au regard de la structure physique de l'arborescence si option vaut 'P' 
+//et de maniére logique sinon.
 int slash_cd_aux(char option, const char* pwd, char *args) {
   if(option == 'P') {
     if(chdir(args) != 0)
       goto error;
     setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
-    PRINT_PWD = 0;
+    PRINT_PWD = 0;//Lorsque PRINT_PWD vaut 0, la fonction slash_pwd va copié son resultat dans PATH au lieu de l'afficher
     char* tokens[2] = {"pwd", "-P"};//On recupère le chemin absolue menant au repertoire courant sans les liens symboliques
     slash_pwd(tokens);
     PRINT_PWD = 1;
     setenv("PWD", PATH, 1);
     return 0;
-  }
+  }//On interprete de maniére logique 
   int ret = 0;
   char* path = malloc(strlen(pwd) + 1 + strlen(args) + 1);
   if(path == NULL) {
@@ -561,14 +567,14 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
     return 1;
   }
   if(*args == '/') {
-    strcpy(path, args);
+    strcpy(path, args);//Si c'est une ref absolue
   }
   else {
     strcpy(path, pwd);
     strcat(path, "/");
-    strcat(path, args);
+    strcat(path, args);//On ajoute args à pwd
   }
-  char* realpath = real_path(path);
+  char* realpath = real_path(path);//realpath va supprimer ce qui est inutile dans path ("..", "."...)
   if(realpath == NULL) {
     free(path);
     fprintf(stderr, "Erreur avec realpath dans slash_cd_aux\n");
@@ -594,6 +600,7 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
     return 1;
 }
 
+//La fonction qui gére la commande cd 
 int slash_cd(char **args)
 {
 
@@ -607,34 +614,34 @@ int slash_cd(char **args)
   if(home == NULL)
     goto error;
 
-  if(args[3] != NULL) {
+  if(args[3] != NULL) {//Si il y a 4 arguments dans args alors il y en a trop (cd -P ref ref2)
     printf("cd : too many arguments, try help\n"); // A mettre dans error
     return 1;
   }
-  else if(args[2] != NULL) {
-    if(strcmp(args[1], "-P") != 0 && strcmp(args[1], "-L") != 0) {
-      printf("cd : too many arguments, try help\n");
+  else if(args[2] != NULL) {//Si il y en a 3                             
+    if(strcmp(args[1], "-P") != 0 && strcmp(args[1], "-L") != 0) {//alors args[1] doit être -P ou -L
+      printf("cd : too many arguments, try help\n");//Sinon erreur (cd ref1 ref2)
       return 1;
     }
 
     if(strcmp(args[1], "-P") == 0)
-      return slash_cd_aux('P', pwd, args[2]);
+      return slash_cd_aux('P', pwd, args[2]);//on interprete en regardant la structure physique de l'arborescence
     else
-      return slash_cd_aux('L', pwd, args[2]);
+      return slash_cd_aux('L', pwd, args[2]);//on interprete de maniére logique 
   }
-  else if((args[1] == NULL) || (strcmp(args[1], "-P") == 0) || (strcmp(args[1], "-L") == 0)) {//args[1] ou args[2] ou les 2 peuvent être - ?
+  else if((args[1] == NULL) || (strcmp(args[1], "-P") == 0) || (strcmp(args[1], "-L") == 0)) {//Si cd ou cd -P ou cd -L on va à home
     if(chdir(home) != 0)
       goto error;
     setenv("OLDPWD", pwd, 1);
     setenv("PWD", home, 1);
-  } else if(strcmp(args[1], "-" ) == 0) {
-    if(chdir(old_pwd) != 0)
+  } else if(strcmp(args[1], "-" ) == 0) {//cd - alors on va dans repertoire précédent
+    if(chdir(old_pwd) != 0)//designé par old_pwd et donc 
       goto error;
-    setenv("OLDPWD", pwd, 1);
-    setenv("PWD", old_pwd, 1);
+    setenv("OLDPWD", pwd, 1);//le repertoire precedent devient pwd
+    setenv("PWD", old_pwd, 1);//et pwd devient le repertoire precedent
   }
   else {
-    return slash_cd_aux('L', pwd, args[1]);
+    return slash_cd_aux('L', pwd, args[1]);//par defaut, cd ref, on interprete ref de maniére logique
   }
 
   return 0;
