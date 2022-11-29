@@ -41,7 +41,7 @@ int slash_help(char **args);
 int slash_pwd(char** args);
 char *slash_get_prompt();
 int slash_cd(char **args);
-
+char** joker_expansion(char* path);
 
 // Auxiliary
 int main();
@@ -56,5 +56,8 @@ void catchSignal(int signal);
 char* real_path(char* p);
 void error_chdir();
 int slash_cd_aux(char option, const char* pwd, char *args);
+void free_double_ptr(char** ptr);
+void catchSignal(int signal);
+int joker_cmp(char* joker, char* name);
 
 #endif

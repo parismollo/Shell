@@ -140,6 +140,19 @@ void slash_exec(char **tokens) {
   // If there is nothing to execute, leave this function. 
   if(tokens[0] == NULL) return;
   
+  // Test jokers expansion
+  // For each token (starting from 1) run expansion and print
+  // int i = 1;
+  // char **results;
+  // while(tokens[i] != NULL) {
+  //   results = joker_expansion(tokens[i++]);
+  //   int j = 0;
+  //   while(results[j] != NULL) {
+  //     printf("%s\n", results[j++]);
+  //   }
+  //   free_double_ptr(results);
+  // }
+
   // Loop over all builtin methods.
   int library_size = sizeof(library) / sizeof(library[0]);
   int no_command = 1;
@@ -368,4 +381,59 @@ int slash_cd(char **args)
       perror("erreur de setenv dans slash_cd_aux");
     error_chdir();
     return 1;
+}
+
+char** joker_expansion(char* path) {
+  char* star = strchr(path, '*');
+  if(star == NULL)
+    return NULL;
+  *star = '\0';
+
+  char* pwd = getenv("PWD");
+  if(pwd == NULL) {
+    fprintf(stderr, "erreur pwd");
+    return NULL;
+  }
+
+  char* new_path = malloc(strlen(pwd) + 1 + strlen(path) + 1);
+  if(new_path == NULL)
+    return NULL;
+  if(*path == '/') {
+    strcpy(new_path, path);
+  }
+  else {
+    strcpy(new_path, pwd);
+    strcat(new_path, "/");
+    strcat(new_path, path);
+  }
+
+  char* realpath = real_path(new_path);
+  if(realpath == NULL) {
+    free(new_path);
+    fprintf(stderr, "Erreur avec realpath dans joker_expansion\n");
+    return NULL;
+  }
+  free(new_path);
+  *star = '*';
+
+  DIR* dir = opendir(realpath);
+  free(realpath);
+  if(dir == NULL) {
+    perror("Erreur ouverture dossier");
+    return NULL;
+  }
+  
+  char** list = malloc(sizeof(char*) * 5);
+  if(list == NULL) {
+    perror("Erreur malloc");
+    return NULL;
+  }
+  int lsize = 5, counter = 0;
+
+  char temp[PATH_MAX];
+  struct dirent* entry;
+  while((entry = readdir(dir)) != NULL) {
+    if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+      continue;
+  }
 }
