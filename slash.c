@@ -319,11 +319,11 @@ int slash_cd(char **args)
     goto error;
 
   if(args[3] != NULL)//Si il y a 4 arguments dans args alors il y en a trop (cd -P ref ref2)
-    goto error;
+    printf("cd : too many arguments, try help\n");
 
   else if(args[2] != NULL) {//Si il y en a 3                             
     if(strcmp(args[1], "-P") != 0 && strcmp(args[1], "-L") != 0)//alors args[1] doit être -P ou -L
-      goto error;//Sinon erreur (cd ref1 ref2)
+      printf("cd : too many arguments, try help\n");//Sinon erreur (cd ref1 ref2)
 
     if(strcmp(args[1], "-P") == 0)
       return slash_cd_aux('P', pwd, args[2]);//on interprete en regardant la structure physique de l'arborescence
@@ -354,10 +354,6 @@ int slash_cd(char **args)
   return 0;
 
   error :
-    if(args[3] != NULL)
-      printf("cd : too many arguments, try help\n");
-    if(strcmp(args[1], "-P") != 0 && strcmp(args[1], "-L") != 0)
-      printf("cd : too many arguments, try help\n");
     if(pwd == NULL)
       perror("La variable d'environnement PWD n'existe pas\n");
     if(home == NULL)
@@ -366,6 +362,7 @@ int slash_cd(char **args)
       perror("La variable d'environnement OLDPWD n'existe pas\n");
     if(ret_stev < 0)
       perror("erreur de setenv dans slash_cd_aux");
-    error_chdir();
+    //error_chdir();
+    perror("slash_cd ");
     return 1;
 }
