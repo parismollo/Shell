@@ -7,7 +7,7 @@
 CC=gcc
 CFLAGS=-Wall -lreadline
 DEPS=slash.h
-OBJ = slash.o
+OBJ = slash.o main.o slash_aux.o
 
 # Remove comment above if you wish to remove prints in terminal.
 # $(VERBOSE).SILENT:
