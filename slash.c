@@ -435,5 +435,50 @@ char** joker_expansion(char* path) {
   while((entry = readdir(dir)) != NULL) {
     if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
       continue;
+
+    if(joker_cmp(star, entry->d_name)) {
+      if(counter+1 >= lsize) {
+        char** ptr = realloc(list, lsize * 2 * sizeof(char*));
+        if(ptr == NULL) {
+          free_double_ptr(list);
+          closedir(dir);
+          perror("malloc");
+          goto error;
+        }
+        lsize *=2;
+        list = ptr; 
+      }
+      strcpy(temp, pwd);
+      strcat(temp, "/");
+      strcat(temp, entry->d_name);
+      list[counter++] = real_path(temp);
+    }
   }
+  list[counter] = NULL;
+  closedir(dir);
+  return list;
+  
+  error:
+    if(dir)
+      closedir(dir);
+    if(list)
+      free(list);
+    return NULL;
+}
+
+int joker_cmp(char* joker, char* name) {
+  char* target = joker + 1;
+  if(*target == '\0')
+    return 1;
+  char * pos = strrchr(name, *target);
+  return (pos != NULL && strcmp(target, pos) == 0);
+}
+
+void free_double_ptr(char** ptr) {
+  printf("FREE: \n");
+  for(int i=0;ptr[i] != NULL;i++) {
+    printf("free en cours %p %s\n", ptr+i, ptr[i]);
+    free(ptr[i]);
+  }
+  free(ptr);
 }
