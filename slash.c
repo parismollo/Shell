@@ -166,15 +166,22 @@ void slash_exec(char **tokens) {
         return;
     }
   }
-
-  
-
-  // On vérifie si au moins 1 commande a été executé. Si ce n'est pas le cas,
-  // c'est que la commande dans tokens[0] n'existe pas.
-  if(no_command) {
-      exit_status = 127;
-      fprintf(stderr, "slash: commande introuvable\n");
-      return;
+  if(no_command){//Si la commande n'est pas une commande interne
+    switch (fork()) {
+      case -1 :
+        perror("slash");
+        return;
+      case 0 :
+        execvp((const char*) tokens[0], tokens);//On execute cette commande externe dans un processus fils 
+        //Si il y a une erreur, par exemple si la commande n'existe pas
+        exit_status = 127;
+        perror("slash");
+        exit(exit_status);
+    }
+    int w;
+    wait(&w);
+    if(WIFEXITED(w))
+      exit_status = WEXITSTATUS(w);
   }
 }
 
