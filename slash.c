@@ -2,6 +2,7 @@
 
 char** get_paths(char** input, char** output);
 char*** get_tokens_paths(char** tokens);
+void exec(char** tokens);
 
 int PRINT_PWD = 1; // Variable auxiliaire pour cd
 char PATH[PATH_MAX];
@@ -191,23 +192,8 @@ void slash_exec(char **tokens) {
         return;
     }
   }
-  if(no_command){//Si la commande n'est pas une commande interne
-    switch (fork()) {
-      case -1 :
-        perror("slash");
-        return;
-      case 0 :
-        execvp((const char*) tokens[0], tokens);//On execute cette commande externe dans un processus fils 
-        //Si il y a une erreur, par exemple si la commande n'existe pas
-        exit_status = 127;
-        perror("slash");
-        exit(exit_status);
-    }
-    int w;
-    wait(&w);
-    if(WIFEXITED(w))
-      exit_status = WEXITSTATUS(w);
-  }
+  if(no_command)//Si la commande n'est pas une commande interne
+    exec(tokens);
 }
 
 
@@ -684,9 +670,21 @@ char** cut_path(char* path, char* delim) {
 }
 
 void exec(char** tokens) {
-  // Mettre code de Daniel ici si possible.
-  // fork() ...
-  // execvp(tokens[0], tokens);
+  switch (fork()) {
+      case -1 :
+        perror("slash");
+        return;
+      case 0 :
+        execvp((const char*) tokens[0], tokens);//On execute cette commande externe dans un processus fils 
+        //Si il y a une erreur, par exemple si la commande n'existe pas
+        exit_status = 127;
+        perror("slash");
+        exit(exit_status);
+    }
+    int w;
+    wait(&w);
+    if(WIFEXITED(w))
+      exit_status = WEXITSTATUS(w);
 }
 
 // Au premier appel, tokens doit être alloué avec le nom du programme à executer
