@@ -211,7 +211,7 @@ void error_chdir(){//Certaines des erreurs les plus courante lorsqu'on utilise c
       perror("le chemin est trop long"); 
       break;
     case ENOENT : 
-      perror("le dossier n'existe pas"); 
+      perror("slash_cd "); 
       break;
     case ENOTDIR : 
       perror("Un élément du chemin n'est pas un repertoire"); 
@@ -242,7 +242,8 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
   int ret = 0;
   char* path = malloc(strlen(pwd) + 1 + strlen(args) + 1);
   if(path == NULL) {
-    goto error;
+    perror("Erreur malloc dans slash_cd_aux");
+    return 1;
   }
   if(*args == '/') {
     strcpy(path, args);//Si c'est une ref absolue
@@ -254,7 +255,9 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
   }
   char* realpath = real_path(path);//realpath va supprimer ce qui est inutile dans path ("..", "."...)
   if(realpath == NULL) {
-    goto error;
+    free(path);
+    fprintf(stderr, "Erreur avec realpath dans slash_cd_aux\n");//fprintf au lieu de perror car perror affiche success à cause de val de retour
+    return 1;
   }
   if(chdir(realpath) != 0) { // Si chdir échoue, alors on interprete le path de manière physique
     ret = slash_cd_aux('P', pwd, args);
@@ -272,16 +275,9 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
   error :
     if(pwd == NULL)
       perror("La variable d'environnement PWD n'existe pas\n");
-    if(path == NULL){
-      perror("Erreur malloc dans slash_cd_aux");
-    }
     if(ret_stev < 0){
       perror("erreur de setenv dans slash_cd_aux");
     }
-    if(realpath == NULL){
-      free(path);
-      fprintf(stderr, "Erreur avec realpath dans slash_cd_aux\n");
-    }
-    error_chdir();
+    perror("slash_cd ");
     return 1;
 }

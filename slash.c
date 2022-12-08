@@ -191,15 +191,22 @@ void slash_exec(char **tokens) {
         return;
     }
   }
-
-  
-
-  // On vérifie si au moins 1 commande a été executé. Si ce n'est pas le cas,
-  // c'est que la commande dans tokens[0] n'existe pas.
-  if(no_command) {
-      exit_status = 127;
-      fprintf(stderr, "slash: commande introuvable\n");
-      return;
+  if(no_command){//Si la commande n'est pas une commande interne
+    switch (fork()) {
+      case -1 :
+        perror("slash");
+        return;
+      case 0 :
+        execvp((const char*) tokens[0], tokens);//On execute cette commande externe dans un processus fils 
+        //Si il y a une erreur, par exemple si la commande n'existe pas
+        exit_status = 127;
+        perror("slash");
+        exit(exit_status);
+    }
+    int w;
+    wait(&w);
+    if(WIFEXITED(w))
+      exit_status = WEXITSTATUS(w);
   }
 }
 
@@ -357,11 +364,11 @@ int slash_cd(char **args)
     goto error;
 
   if(args[3] != NULL)//Si il y a 4 arguments dans args alors il y en a trop (cd -P ref ref2)
-    goto error;
+    printf("cd : too many arguments, try help\n");
 
   else if(args[2] != NULL) {//Si il y en a 3                             
     if(strcmp(args[1], "-P") != 0 && strcmp(args[1], "-L") != 0)//alors args[1] doit être -P ou -L
-      goto error;//Sinon erreur (cd ref1 ref2)
+      printf("cd : too many arguments, try help\n");//Sinon erreur (cd ref1 ref2)
 
     if(strcmp(args[1], "-P") == 0)
       return slash_cd_aux('P', pwd, args[2]);//on interprete en regardant la structure physique de l'arborescence
@@ -392,10 +399,6 @@ int slash_cd(char **args)
   return 0;
 
   error :
-    if(args[3] != NULL)
-      printf("cd : too many arguments, try help\n");
-    if(strcmp(args[1], "-P") != 0 && strcmp(args[1], "-L") != 0)
-      printf("cd : too many arguments, try help\n");
     if(pwd == NULL)
       perror("La variable d'environnement PWD n'existe pas\n");
     if(home == NULL)
@@ -404,7 +407,8 @@ int slash_cd(char **args)
       perror("La variable d'environnement OLDPWD n'existe pas\n");
     if(ret_stev < 0)
       perror("erreur de setenv dans slash_cd_aux");
-    error_chdir();
+    //error_chdir();
+    perror("slash_cd ");
     return 1;
 }
 
