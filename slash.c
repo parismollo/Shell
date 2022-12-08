@@ -627,3 +627,107 @@ char** get_paths(char** input, char** output) {
     flat = concat(flat, &flat_size, expansion);
     free_double_ptr(expansion);
   }
+  free_double_ptr(output);
+  if(input[0] == NULL) {
+    return flat;
+  }
+
+  for(int i=0;flat[i] != NULL; i++) {
+    char* ptr = realloc(flat[i], strlen(flat[i]) + 1 + strlen(input[0]) + 1);
+    if(ptr == NULL) {
+      free_double_ptr(flat);
+      return NULL;
+    }
+    flat[i] = ptr;
+    strcat(flat[i], "/");
+    strcat(flat[i], input[0]); 
+  }
+
+  return get_paths(input+1, flat);
+}
+
+char** cut_path(char* path, char* delim) {
+  int size = 10;
+  char** sub_paths = malloc(sizeof(char*) * size + 1);
+  
+  char* token = strtok(path, delim);
+  char* tmp = malloc(strlen(token) + 2);
+  
+  strcpy(tmp, token);
+  strcat(tmp, "*");
+  
+  int len = 0;
+  while(token != NULL) {
+
+    if(len >= size - 1) {
+      char** ptr = realloc(sub_paths, size * 2);
+      size *= 2;
+      sub_paths = ptr;
+    }
+    if(len == 0) {
+      sub_paths[len] = tmp;
+      len++;
+    }
+    else {
+      token = strtok(NULL, delim);
+      if(token != NULL) {
+        tmp = malloc(strlen(token) + 2);
+        strcpy(tmp, token+1);
+        strcat(tmp, "*");
+        sub_paths[len] = tmp;
+        len++;
+      }
+    }
+  }
+  sub_paths[len] = NULL;
+  return sub_paths;
+}
+
+void exec(char** tokens) {
+  // Mettre code de Daniel ici si possible.
+  // fork() ...
+  // execvp(tokens[0], tokens);
+}
+
+// Au premier appel, tokens doit être alloué avec le nom du programme à executer
+// comme 1er element
+// paths et tokens doivent contenir un NULL à la fin
+// Pour l'instant tokens à une taille de MAX_ARGS=4096.
+
+// ATTENTION ICI free(tokens) suffit. PAS DE FREE_DOUBLE_PTR.
+// car tokens contient uniquement des liens vers les string dans paths
+void exec_all(char*** paths, char** tokens, int index) {
+  char** tab = paths[index];
+  if(tab == NULL) {
+    exec(tokens);
+    return;
+  }
+  
+  for(int i=0;tab[i] != NULL;i++) {
+    tokens[index] = tab[i];
+    exec_all(paths, tokens, index+1);
+  }
+  tokens[index] = NULL;
+}
+
+char*** get_tokens_paths(char** tokens) {
+  int tab_capacity = 10;
+  int tab_size = 0;
+  char*** tab = malloc(sizeof(char**) * tab_capacity );
+  
+  if(tab ==  NULL) {perror("malloc failed"); return NULL;}
+  for(int i=0; tokens[i] != NULL; i++) {
+    if(tab_size >= tab_capacity - 1) {
+      char*** ptr = realloc(tab, sizeof(char**) * tab_capacity * 2);
+      if(ptr == NULL) {perror("malloc failed"); return NULL;} 
+      tab_capacity*=2;
+      tab = ptr;
+    }
+    char** cut = cut_path(tokens[i], "*");
+    tab[tab_size] = get_paths(cut, NULL);
+    free_double_ptr(cut);
+    tab_size++;
+  }
+  tab[tab_size] = NULL;
+  return tab;
+}
