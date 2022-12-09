@@ -62,4 +62,10 @@ void free_double_ptr(char** ptr);
 void catchSignal(int signal);
 int joker_cmp(char* joker, char* name);
 
+char** get_paths(char** input, char** output);
+char*** get_tokens_paths(char** tokens);
+void exec(char** tokens);
+void exec_all(char*** paths, char** tokens, int index);
+void free_triple_ptr(char*** ptr);
+
 #endif

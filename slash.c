@@ -1,9 +1,5 @@
 #include "slash.h"
 
-char** get_paths(char** input, char** output);
-char*** get_tokens_paths(char** tokens);
-void exec(char** tokens);
-
 int PRINT_PWD = 1; // Variable auxiliaire pour cd
 char PATH[PATH_MAX];
 
@@ -84,7 +80,7 @@ void slash_read() {
   prompt_line = readline(prompt_path);
   // Detects EOF
   if(prompt_line == NULL) {
-    exit_status = 0;
+    // exit_status = 0;
     exec_loop = 0;
     free(prompt_path);
     return;
@@ -192,8 +188,9 @@ void slash_exec(char **tokens) {
         return;
     }
   }
-  if(no_command)//Si la commande n'est pas une commande interne
+  if(no_command) { //Si la commande n'est pas une commande interne
     exec(tokens);
+  }
 }
 
 
@@ -553,10 +550,10 @@ char** get_paths(char** input, char** output) {
   // output = NULL 
 
   // DEBUG OUTPUT TAB
-  for(int i=0;output != NULL && output[i] != NULL;i++) {
-    printf("output : %s\n", output[i]);
-  }
-  puts("\n");
+  // for(int i=0;output != NULL && output[i] != NULL;i++) {
+  //   printf("output : %s\n", output[i]);
+  // }
+  // puts("\n");
   if(input == NULL) {
     fprintf(stderr, "get_paths: Le tableau input ne doit pas etre NULL\n");
     return NULL;
@@ -635,12 +632,32 @@ char** get_paths(char** input, char** output) {
 char** cut_path(char* path, char* delim) {
   int size = 10;
   char** sub_paths = malloc(sizeof(char*) * size + 1);
+  int add_star = 1;
   
+  char* is_star = strchr(path, '*');
+  if(is_star == NULL){
+    add_star = 0;
+  }
+
   char* token = strtok(path, delim);
-  char* tmp = malloc(strlen(token) + 2);
+  char* tmp;
+  if(token == NULL) {
+    tmp = malloc(strlen(path) + 1);
+    if(tmp == NULL) {
+      perror("malloc failed"); 
+      free(sub_paths);
+      return NULL;
+    }
+    strcpy(tmp, path);
+    sub_paths[0] = tmp; // ATTENTION ICI
+    sub_paths[1] = NULL;
+    return sub_paths;
+  }
+  tmp = malloc(strlen(token) + 2);
   
   strcpy(tmp, token);
-  strcat(tmp, "*");
+  if(add_star)
+    strcat(tmp, "*");
   
   int len = 0;
   while(token != NULL) {
@@ -696,13 +713,19 @@ void exec(char** tokens) {
 // car tokens contient uniquement des liens vers les string dans paths
 void exec_all(char*** paths, char** tokens, int index) {
   char** tab = paths[index];
+   for(int i=0;i<=1;i++)
+     printf("tab[%d] = %s\n", i, tab[i]);
   if(tab == NULL) {
-    exec(tokens);
+    slash_exec(tokens);
     return;
   }
   
   for(int i=0;tab[i] != NULL;i++) {
     tokens[index] = tab[i];
+    // printf("Commande [%d]: ", i);
+    // for(int j=0; tokens[j]!=NULL; j++) {
+    //   printf("%s", tokens[j]);
+    // }
     exec_all(paths, tokens, index+1);
   }
   tokens[index] = NULL;
@@ -722,6 +745,7 @@ char*** get_tokens_paths(char** tokens) {
       tab = ptr;
     }
     char** cut = cut_path(tokens[i], "*");
+    // printf("%s\n", cut[0]);
     tab[tab_size] = get_paths(cut, NULL);
     free_double_ptr(cut);
     tab_size++;
