@@ -10,6 +10,7 @@ char *colors[] = {
   "\033[34m", // blue
   "\033[36m", // cyan
   "\033[00m",// white
+  "\033[00m" // reset
 };
 
 // variables
@@ -284,8 +285,8 @@ int slash_pwd(char** args) {
 
 char * slash_get_prompt() {
   // Taille maximale (sans couleurs) de 30 Caractères
-  // 10 for two colors + 5 for status + 1 pour dollar + 25 Path + 3 espaces + 1 (\0)
-  char *prompt = malloc(sizeof(char) * (45));
+  // ((10 for two colors)* 2) + 5 for status + 1 pour dollar + 25 Path + 3 espaces + 8 (\001, \002) + 1 (\0)
+  char *prompt = malloc(sizeof(char) * (45+10+8));
   if(prompt == NULL) {
     perror("Error malloc slash_get_prompt");
     return NULL;
@@ -302,16 +303,25 @@ char * slash_get_prompt() {
   //4. Formatting prompt (tmp solution)
   //[COLOR][EXIT_CODE] [PATH]$[RESET COLOR]
   char * exit_status_prompt = get_exit_status();
+
+  strcat(prompt, "\001"); 
   strcat(prompt, get_color(exit_status));
+  strcat(prompt, "\002");
   
   strcat(prompt, "[");
   strcat(prompt, exit_status_prompt);
   strcat(prompt, "]");
 
-  strcat(prompt, get_color(100));
+  strcat(prompt, "\001");
+  strcat(prompt, get_color(100)); // reset color
+  strcat(prompt, "\002");
   
   // Here have to go trough function to reduce path if necessary. Example 25 max size.
   char * shorter_path = get_shorter_path(path, 25);
+  
+  strcat(prompt, "\001");
+  strcat(prompt, get_color(1000));
+  strcat(prompt, "\002");
   
   if(shorter_path == NULL) {
     strcat(prompt, path);
@@ -319,17 +329,22 @@ char * slash_get_prompt() {
     strcat(prompt, shorter_path);
     free(shorter_path);
   }
+  
+  strcat(prompt, "\001");
+  strcat(prompt, get_color(100)); // reset color
+  strcat(prompt, "\002");
+
   strcat(prompt, "$ ");
   free(exit_status_prompt);
   return prompt;
 }
 
 
-    //Factoriser code 
-    //Commenter code
-    //Completer le error :
-    //Faire les error pour setenv
-    //Faire plusieurs fichiers .c  
+//Factoriser code 
+//Commenter code
+//Completer le error :
+//Faire les error pour setenv
+//Faire plusieurs fichiers .c  
 
 
 //La fonction qui gére la commande cd 

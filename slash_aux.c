@@ -53,8 +53,10 @@ char * get_color(int n) {
   case 2:
   case 127:
     return colors[1];
+  case 1000:
+    return colors[3];
   default:
-    return colors[4];
+    return colors[5];
   }
 }
 
