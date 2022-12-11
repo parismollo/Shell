@@ -67,5 +67,7 @@ char*** get_tokens_paths(char** tokens);
 void exec(char** tokens);
 void exec_all(char*** paths, char** tokens, int index);
 void free_triple_ptr(char*** ptr);
+void disp_double_ptr(char** ptr);
+void disp_triple_ptr(char*** ptr);
 
 #endif

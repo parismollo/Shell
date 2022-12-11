@@ -19,18 +19,20 @@ int main() {
       // Step 3: Execute input:
       if(tokens) {
         char*** paths = get_tokens_paths(tokens);
-        char* temp_tokens[MAX_ARGS_NUMBER + 1];
-        temp_tokens[0] = tokens[0];
-        temp_tokens[1] = NULL;
-        for(int i=2;i<MAX_ARGS_NUMBER;i++)
-          temp_tokens[i] = NULL;
-        
-        
-        for(int i=0; paths[i]!=NULL; i++) {
-          for(int j=0; paths[i][j]!=NULL; j++) {
-            printf("%s\n", paths[i][j]);
-          }
-        }
+        //disp_triple_ptr(paths);
+
+      // for(int i=0; paths[i] != NULL; i++) {
+      //   printf("DEBUT Résultat %d:\n", i);
+      //   for(int j=0; paths[i][j] != NULL; j++) {
+      //     printf("Résultat étoile : %s\n", paths[i][j]);
+      //   }
+      // }
+
+        // char* temp_tokens[MAX_ARGS_NUMBER + 1];
+        // temp_tokens[0] = tokens[0];
+        // temp_tokens[1] = NULL;
+        // for(int i=2;i<MAX_ARGS_NUMBER;i++)
+        //   temp_tokens[i] = NULL;
 
         //exec_all(paths, temp_tokens, 1);
 
