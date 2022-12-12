@@ -410,10 +410,39 @@ int slash_cd(char **args)
     return 1;
 }
 
+int file_exists(char* file) {
+  int fd = open(file, O_RDONLY);
+  if(fd < 0) {
+    return 0;
+  }
+  close(fd);
+  return 1;
+}
+
 char** joker_expansion(char* path) {
   char* star = strchr(path, '*');
-  if(star == NULL)
-    return NULL;
+  if(star == NULL) {
+    // On vérifie si le fichier ou dossier existe.
+    // Si oui on le renvoie dans un tableau 2 cases (NULL a la fin)
+    // Sinon on renvoie NULL
+    if(!file_exists(path)) {
+      return NULL;
+    }
+    // On fait un tableau char** avec juste le path
+    char** no_joker = malloc(sizeof(char*) * 2);
+    if(no_joker == NULL) {
+      return NULL;
+    }
+    char* tmp = malloc(strlen(path) + 1);
+    if(tmp == NULL) {
+      free(no_joker);
+      return NULL;
+    }
+    strcpy(tmp, path);
+    no_joker[0] = tmp;
+    no_joker[1] = NULL;
+    return no_joker;
+  }
   *star = '\0';
 
   char* pwd = getenv("PWD");
@@ -616,7 +645,7 @@ char** get_paths(char** input, char** output) {
   // flat = [NULL, .....]
   for(int i=0;output[i] != NULL;i++) {
     char** expansion = joker_expansion(output[i]);
-    
+   
     if(expansion == NULL) {
       // Cela signifie que aucun fichier/dossier ne matche avec le joker output[i]
       // On passe donc au suivant, avec un continue
@@ -655,9 +684,12 @@ char** cut_path(char* path, char* delim) {
   }
 
   // On fait une copie de path
-  char* tmp = malloc(strlen(path) + 1);
+  char* tmp = malloc(strlen(path) + 2);
   // Check malloc
-  strcpy(tmp, path);
+  // On ajoute un espace en plus pour éviter un bug si
+  // le path commence par une étoile
+  strcpy(tmp, " ");
+  strcat(tmp, path);
   path = tmp;
 
   char* token = strtok(path, delim);
@@ -680,11 +712,12 @@ char** cut_path(char* path, char* delim) {
   if(add_star)
     strcat(tmp, "*");
   
+  char* slash = NULL;
   int len = 0;
   while(token != NULL) {
 
     if(len >= size - 1) {
-      char** ptr = realloc(sub_paths, size * 2);
+      char** ptr = realloc(sub_paths, size * 2 * sizeof(char*));
       size *= 2;
       sub_paths = ptr;
     }
@@ -694,23 +727,49 @@ char** cut_path(char* path, char* delim) {
     }
     else {
       token = strtok(NULL, delim);
+
       if(token != NULL) {
-        tmp = malloc(strlen(token) + 2);
-        /* On vérifie si on est sur le dernier mot*/
-        if(token) {
-          strcpy(tmp, token+1);
-          strcat(tmp, "*");
+        slash = strchr(token, '/');
+        if(slash != NULL && len > 0) {
+          // C'est ici qu'est la fin du mot
+          *slash = '\0';
+          
+          if(len > 0) {
+            // On copie le bout avant le '/' sur le mot d'avant
+            tmp = realloc(sub_paths[len-1], strlen(sub_paths[len-1]) + strlen(token) + 1);
+            // Vérifier realloc...
+            strcat(tmp, token);
+            sub_paths[len-1] = tmp;
+
+            // Puis, on copie le bout après le slash avec une étoile en plus
+            // Pour ça, il suffit de dire que token = slash
+            token = slash;
+          }
         }
+
+        tmp = malloc(strlen(token+1) + 2);
+        /* On vérifie si on est sur le dernier mot*/
+        strcpy(tmp, token+1);
+        strcat(tmp, "*");
+        // ICI. Il faut vérifier si il y a autre chose entre le slash et l'étoile
+        // Si oui, il faut le rajouter
+        // Il faut retenir le dernier mot dans char* prev par exemple.
+        // Puis strchr du premier '/' si il y en a un
+        // Enfin, on strcat dans prev jusqu'au slash
+        // Et dans le mot actuel on met ce qu'il y a après le '/'
+        
         sub_paths[len] = tmp;
         len++;
       }
     }
   }
 
-  if(len > 0 && last_star != NULL && last_star[1] != '\0') {
+  // On supprime l'espace rajouté au debut et qui est dans le premier token
+  size_t new_size = strlen(sub_paths[0]) - 1;
+  memmove(sub_paths[0], sub_paths[0] + 1, new_size);
+  sub_paths[0][new_size] = '\0';
 
-    // On vérifie si il y a un '/' après l'étoile.
-    char* slash = strchr(last_star, '/');
+  if(len > 0 && last_star != NULL && last_star[1] != '\0') {
 
     // On a : a/*dos/a/b
     // Dans le tableau: [[a/*][os/a/b]]
@@ -723,30 +782,54 @@ char** cut_path(char* path, char* delim) {
     // Autre cas: */a/b
     // Dans le tableau : [[a/b*]]
     // On doit 
-    if(slash != NULL) {
 
+    if(len == 1) { // Ici on écrase le dernier mot avec last_star (ex: *.c)
+      len--; // On recule au dernier mot
+      tmp = realloc(sub_paths[len], strlen(last_star) + 1);
+      // Vérifier realloc
+      strcpy(tmp, last_star);
+      sub_paths[len] = tmp;
     }
-    else {
-      if(len == 1) { // Ici on écrase le dernier mot avec last_star (ex: *.c)
-        len--; // On recule au dernier mot
-        tmp = realloc(sub_paths[len], strlen(last_star) + 1);
-        // Vérifier realloc
-        strcpy(tmp, last_star);
-        sub_paths[len] = tmp;
+    else { // Ici, on colle une extension d'etoile (ex: .c) sur l'avant dernier mot (ex: b/*)
+      len-=2; // On recule à l'avant dernier mot
+      tmp = realloc(sub_paths[len], strlen(sub_paths[len]) + strlen(last_star+1) + 1);
+      // Vérifier realloc
+      strcat(tmp, last_star+1);
+      sub_paths[len] = tmp;
+      free(sub_paths[len+1]);
+    }
+
+    // On vérifie si il y a un '/' après l'étoile.
+    char* slash = strchr(last_star, '/');
+
+    if(slash != NULL) {
+      if(len >= size - 1) {
+        // On rajoute une case
+        char** ptr = realloc(sub_paths, size + sizeof(char*));
+        // Vérifier realloc...
+        size++;
+        sub_paths = ptr;
       }
-      else { // Ici, on colle une extension d'etoile (ex: .c) sur l'avant dernier mot (ex: b/*)
-        len-=2; // On recule à l'avant dernier mot
-        tmp = realloc(sub_paths[len], strlen(sub_paths[len]) + strlen(last_star+1) + 1);
-        // Vérifier realloc
-        strcat(tmp, last_star+1);
-        sub_paths[len] = tmp;
-        free(sub_paths[len+1]);
+
+      // Je vais sur l'étoile, puis sur le premier slash après l'étoile.
+      last_star = strrchr(sub_paths[len], '*');
+      slash = strchr(last_star, '/');
+      // C'est ici qu'est la fin du mot
+      *slash = '\0';
+      
+      if(slash[1] != '\0') {
+        tmp = malloc(strlen(slash+1) + 1);
+        // Vérifier malloc...
+        strcpy(tmp, slash+1);
+        sub_paths[++len] = tmp;
       }
     }
+
     len++;
   }
 
   sub_paths[len] = NULL;
+  
   free(path);
   return sub_paths;
 }
@@ -791,19 +874,17 @@ void exec(char** tokens) {
 // car tokens contient uniquement des liens vers les string dans paths
 void exec_all(char*** paths, char** tokens, int index) {
   char** tab = paths[index];
-   for(int i=0;i<=1;i++)
-     printf("tab[%d] = %s\n", i, tab[i]);
+
   if(tab == NULL) {
     slash_exec(tokens);
     return;
   }
   
+  //  for(int i=0;i<=1;i++)
+  //    printf("tab[%d] = %s\n", i, tab[i]);
+
   for(int i=0;tab[i] != NULL;i++) {
     tokens[index] = tab[i];
-    // printf("Commande [%d]: ", i);
-    // for(int j=0; tokens[j]!=NULL; j++) {
-    //   printf("%s", tokens[j]);
-    // }
     exec_all(paths, tokens, index+1);
   }
   tokens[index] = NULL;
@@ -826,9 +907,10 @@ char*** get_tokens_paths(char** tokens) {
     // disp_double_ptr(cut);
     char* star = strchr(tokens[i], '*');
     if(star != NULL) {
-      disp_double_ptr(cut);
+      // disp_double_ptr(cut);
       tab[tab_size] = get_paths(cut, NULL);
-      //disp_double_ptr(tab[tab_size]);
+      // printf("ICI\n");
+      // disp_double_ptr(tab[tab_size]);
       free_double_ptr(cut);
     }
     else {
