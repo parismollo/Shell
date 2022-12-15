@@ -361,7 +361,7 @@ int slash_cd(char **args)
   if(home == NULL)
     goto error;
 
-  if(args[3] != NULL)//Si il y a 4 arguments dans args alors il y en a trop (cd -P ref ref2)
+  if(args[3] != NULL) // Si il y a 4 arguments dans args alors il y en a trop (cd -P ref ref2)
     printf("cd : too many arguments, try help\n");
 
   else if(args[2] != NULL) {//Si il y en a 3                             
@@ -445,37 +445,25 @@ char** joker_expansion(char* path) {
   }
   *star = '\0';
 
-  char* pwd = getenv("PWD");
-  if(pwd == NULL) {
-    fprintf(stderr, "erreur pwd");
-    return NULL;
-  }
-
-  char* new_path = malloc(strlen(pwd) + 1 + strlen(path) + 1);
+  char* new_path = malloc(strlen(path) + 1);
   if(new_path == NULL)
     return NULL;
-  if(*path == '/') {
-    strcpy(new_path, path);
-  }
-  else {
-    strcpy(new_path, pwd);
-    strcat(new_path, "/");
-    strcat(new_path, path);
-  }
 
-  char* realpath = real_path(new_path);
-  free(new_path);
-  if(realpath == NULL) {
-    fprintf(stderr, "Erreur avec realpath dans joker_expansion\n");
-    return NULL;
-  }
+  strcpy(new_path, path);
   
   *star = '*';
 
-  DIR* dir = opendir(realpath);
+  DIR* dir;
+  
+  if(*new_path == '\0') {
+    dir = opendir(".");
+  } 
+  else {
+    dir = opendir(new_path);
+  }
   // printf("OPENING folder: %s\n", realpath);
   if(dir == NULL) {
-    free(realpath);
+    free(new_path);
     // perror("Erreur ouverture dossier");
     // Pas de perror. Car l'expansion d'un joker peut échouer.
     // On ne veut pas pour autant afficher cette erreur
@@ -484,7 +472,7 @@ char** joker_expansion(char* path) {
   
   char** list = malloc(sizeof(char*) * 5);
   if(list == NULL) {
-    free(realpath);
+    free(new_path);
     perror("Erreur malloc");
     return NULL;
   }
@@ -502,7 +490,7 @@ char** joker_expansion(char* path) {
       if(counter+1 >= lsize) {
         char** ptr = realloc(list, lsize * 2 * sizeof(char*));
         if(ptr == NULL) {
-          free(realpath);
+          free(new_path); //ici
           free_double_ptr(list);
           closedir(dir);
           perror("malloc");
@@ -511,15 +499,31 @@ char** joker_expansion(char* path) {
         lsize *=2;
         list = ptr; 
       }
+
       // Attention ici. Peut être qu'il faut vérifier si on dépasse PATH_MAX caractères.
-      strcpy(temp, realpath);
-      strcat(temp, "/");
+      strcpy(temp, new_path); //ici
+      // if(*new_path != '\0') {
+      //   strcat(temp, "/");
+      // }
       strcat(temp, entry->d_name);
-      list[counter++] = real_path(temp);
+
+
+
+      char* temp2 = malloc(strlen(temp) + 1);
+      if(temp2 == NULL) {
+        free(new_path);
+        free_double_ptr(list);
+        closedir(dir);
+        perror("malloc");
+        goto error;
+      }
+      strcpy(temp2, temp);
+      
+      list[counter++] = temp2;
     }
   }
   list[counter] = NULL;
-  free(realpath);
+  free(new_path);//ici
   closedir(dir);
   return list;
   
@@ -865,6 +869,44 @@ void exec(char** tokens) {
       exit_status = WEXITSTATUS(w);
 }
 
+
+char** flat_triple_tab(char*** tab) {
+  int capacity = 10;
+  int len = 0;
+  char** r = malloc(sizeof(char*) * capacity);
+  if(r == NULL) {
+    perror("error malloc flat_triple_tab");
+    return NULL;
+  }
+  for(int i=0;i<capacity;i++)
+    r[i] = NULL;
+  for(int j=0;tab[j] != NULL;j++) {
+    for(int i=0;tab[j][i] != NULL;i++) {
+      if(len >= capacity - 1) {
+        char** ptr = realloc(r, sizeof(char*) * capacity * 2);
+        if(ptr == NULL) {
+          perror("realloc error flat function");
+          free_double_ptr(r);
+          return NULL;
+        }
+        capacity *= 2;
+        r = ptr;
+      }
+      char* cpy = malloc(strlen(tab[j][i]) + 1);
+      if(cpy == NULL) {
+          perror("malloc error flat function");
+          free_double_ptr(r);
+          return NULL;
+      }
+      strcpy(cpy, tab[j][i]);
+      r[len] = cpy;
+      len++;
+    }
+    r[len] = NULL;
+  }
+  return r;
+}
+
 // Au premier appel, tokens doit être alloué avec le nom du programme à executer
 // comme 1er element
 // paths et tokens doivent contenir un NULL à la fin
@@ -907,7 +949,7 @@ char*** get_tokens_paths(char** tokens) {
     // disp_double_ptr(cut);
     char* star = strchr(tokens[i], '*');
     if(star != NULL) {
-      // disp_double_ptr(cut);
+      //disp_double_ptr(cut);
       tab[tab_size] = get_paths(cut, NULL);
       // printf("ICI\n");
       // disp_double_ptr(tab[tab_size]);

@@ -69,5 +69,6 @@ void exec_all(char*** paths, char** tokens, int index);
 void free_triple_ptr(char*** ptr);
 void disp_double_ptr(char** ptr);
 void disp_triple_ptr(char*** ptr);
+char** flat_triple_tab(char*** tab);
 
 #endif

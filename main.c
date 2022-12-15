@@ -28,13 +28,23 @@ int main() {
         //   }
         // }
 
-        char* temp_tokens[MAX_ARGS_NUMBER + 1];
-        temp_tokens[0] = tokens[0];
-        temp_tokens[1] = NULL;
-        for(int i=2;i<MAX_ARGS_NUMBER;i++)
-          temp_tokens[i] = NULL;
+        // char* temp_tokens[MAX_ARGS_NUMBER + 1];
+        // temp_tokens[0] = tokens[0];
+        // temp_tokens[1] = NULL;
 
-        exec_all(paths, temp_tokens, 1);
+        // for(int i=2;i<MAX_ARGS_NUMBER;i++)
+        //   temp_tokens[i] = NULL;
+        
+        // disp_double_ptr(flat_triple_tab(paths));
+        
+        // exec_all(paths, temp_tokens, 1);
+
+        char** flat_tokens = flat_triple_tab(paths);
+        if(flat_tokens) {
+          //disp_double_ptr(flat_tokens);
+          slash_exec(flat_tokens);
+          free_double_ptr(flat_tokens);
+        }
 
         free_triple_ptr(paths);
         
