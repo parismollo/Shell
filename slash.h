@@ -70,5 +70,7 @@ void free_triple_ptr(char*** ptr);
 void disp_double_ptr(char** ptr);
 void disp_triple_ptr(char*** ptr);
 char** flat_triple_tab(char*** tab);
+char* remove_slashes(char* str);
+char* copy_str(char* str);
 
 #endif

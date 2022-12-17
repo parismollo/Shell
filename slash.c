@@ -941,5 +941,58 @@ char*** get_tokens_paths(char** tokens) {
   }
   tab[tab_size] = NULL;
 
+  for(int j=0;tab[j] != NULL;j++) {
+    for(int i=0;tab[j][i] != NULL;i++) {
+      char* tmp = tab[j][i];
+      tab[j][i] = remove_slashes(tab[j][i]);
+      free(tmp);
+    }
+  }
+
   return tab;
+}
+
+char* copy_str(char* str) {
+  if(str == NULL)
+    return NULL;
+  char* new_str = malloc(strlen(str) + 1);
+  if(new_str == NULL) {
+    perror("Error malloc copy_str");
+    return NULL;
+  }
+  return strcpy(new_str, str);
+}
+
+// On pourrait envisager de faire un trim(str) pour ne pas avoir de probleme
+// Elle fonctionne uniquement si il n'y a pas d'espace au début et à la fin de str
+char* remove_slashes(char* str) {
+  if(str == NULL)
+    return NULL;
+  char* path = copy_str(str);
+  if(path == NULL) // perror in copy_str
+    return NULL;
+  if(strchr(path, '/') == NULL)
+    return path;
+  size_t str_len = strlen(str);
+  char* new_str = malloc(str_len + 2);
+  if(new_str == NULL) {
+    perror("error malloc remove_slashes");
+    return NULL;
+  }
+  int len = 0;
+  if(str[0] == '/')
+    new_str[len++] = '/';
+  new_str[len] = '\0';
+
+  char* token = strtok(path, "/");
+  while(token != NULL) {
+    strcat(new_str, token);
+    strcat(new_str, "/");
+    token = strtok(NULL, "/");
+  }
+  len = strlen(new_str);
+  if(str[str_len-1] != '/') 
+    new_str[len-1] = '\0';
+  free(path);
+  return new_str;
 }
