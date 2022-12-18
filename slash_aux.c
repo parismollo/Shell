@@ -142,8 +142,8 @@ int push_string(char* buffer, char* str) {
 //Mais push_string utilisé aussi ici donc ?
 
 
-//real_path permet d'obtenir le chemin absolue avec les liens symboliques et propre (sans .. ou . ou ///)
-char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
+// real_path permet d'obtenir le chemin absolue avec les liens symboliques et propre (sans .. ou . ou ///)
+char* real_path(char* p) {
 
   char* path = malloc(strlen(p)+1);
   if(path == NULL) {
@@ -196,12 +196,12 @@ char* real_path(char* p) { // Attention copier path !!!!!!!!!!!!
   free(buf1);
 
   if(buf2[0] != '/')
-    buf2[0] = '/';//buf2 est un chemin absolue
+    buf2[0] = '/';// buf2 est un chemin absolue
   // printf("BUFFER 2 : %s\n", buf2);
   return buf2;//buf2 designe donc le chemin absolue menant au repertoire courant, contenant les liens symboliques
 }
 
-void error_chdir(){//Certaines des erreurs les plus courante lorsqu'on utilise chdir
+void error_chdir() { // Certaines des erreurs les plus courante lorsqu'on utilise chdir
   switch(errno){
     case EACCES : 
       perror("l'accès à un élément du chemin n'est pas autorisé "); 
@@ -221,18 +221,18 @@ void error_chdir(){//Certaines des erreurs les plus courante lorsqu'on utilise c
   }
 }
 
-//Cette fonction va se deplacer depuis le repertoire courant pwd dans le dossier args
-//Au regard de la structure physique de l'arborescence si option vaut 'P' 
-//et de maniére logique sinon.
+// Cette fonction va se deplacer depuis le repertoire courant pwd dans le dossier args
+// Au regard de la structure physique de l'arborescence si option vaut 'P' 
+// et de maniére logique sinon.
 int slash_cd_aux(char option, const char* pwd, char *args) {
-  int ret_stev = 0;//Il va representer la valeur de retour des appels à setenv pour la gestion d'erreurs
+  int ret_stev = 0; // Il va representer la valeur de retour des appels à setenv pour la gestion d'erreurs
   if(option == 'P') {
     if(chdir(args) != 0)
       goto error;
     ret_stev = setenv("OLDPWD", pwd, 1); // On met a jour OLDPWD que lorsqu'on est sûr que chdir a fonctionné
     if(ret_stev<0)
       goto error;
-    PRINT_PWD = 0;//Lorsque PRINT_PWD vaut 0, la fonction slash_pwd va copié son resultat dans PATH au lieu de l'afficher
+    PRINT_PWD = 0; // Lorsque PRINT_PWD vaut 0, la fonction slash_pwd va copié son resultat dans PATH au lieu de l'afficher
     char* tokens[2] = {"pwd", "-P"};//On recupère le chemin absolue menant au repertoire courant sans les liens symboliques
     slash_pwd(tokens);
     PRINT_PWD = 1;
@@ -240,7 +240,7 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
     if(ret_stev<0)
       goto error;
     return 0;
-  }//On interprete de maniére logique 
+  } // On interprete de maniére logique 
   int ret = 0;
   char* path = malloc(strlen(pwd) + 1 + strlen(args) + 1);
   if(path == NULL) {
@@ -248,17 +248,17 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
     return 1;
   }
   if(*args == '/') {
-    strcpy(path, args);//Si c'est une ref absolue
+    strcpy(path, args); // Si c'est une ref absolue
   }
   else {
     strcpy(path, pwd);
     strcat(path, "/");
-    strcat(path, args);//On ajoute args à pwd
+    strcat(path, args); // On ajoute args à pwd
   }
-  char* realpath = real_path(path);//realpath va supprimer ce qui est inutile dans path ("..", "."...)
+  char* realpath = real_path(path); // realpath va supprimer ce qui est inutile dans path ("..", "."...)
   if(realpath == NULL) {
     free(path);
-    fprintf(stderr, "Erreur avec realpath dans slash_cd_aux\n");//fprintf au lieu de perror car perror affiche success à cause de val de retour
+    fprintf(stderr, "Erreur avec realpath dans slash_cd_aux\n"); // fprintf au lieu de perror car perror affiche success à cause de val de retour
     return 1;
   }
   if(chdir(realpath) != 0) { // Si chdir échoue, alors on interprete le path de manière physique
@@ -282,4 +282,49 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
     }
     perror("slash_cd ");
     return 1;
+}
+
+char* copy_str(char* str) {
+  if(str == NULL)
+    return NULL;
+  char* new_str = malloc(strlen(str) + 1);
+  if(new_str == NULL) {
+    perror("Error malloc copy_str");
+    return NULL;
+  }
+  return strcpy(new_str, str);
+}
+
+// On pourrait envisager de faire un trim(str) pour ne pas avoir de probleme
+// Elle fonctionne uniquement si il n'y a pas d'espace au début et à la fin de str
+char* remove_slashes(char* str) {
+  if(str == NULL)
+    return NULL;
+  char* path = copy_str(str);
+  if(path == NULL) // perror in copy_str
+    return NULL;
+  if(strchr(path, '/') == NULL)
+    return path;
+  size_t str_len = strlen(str);
+  char* new_str = malloc(str_len + 2);
+  if(new_str == NULL) {
+    perror("error malloc remove_slashes");
+    return NULL;
+  }
+  int len = 0;
+  if(str[0] == '/')
+    new_str[len++] = '/';
+  new_str[len] = '\0';
+
+  char* token = strtok(path, "/");
+  while(token != NULL) {
+    strcat(new_str, token);
+    strcat(new_str, "/");
+    token = strtok(NULL, "/");
+  }
+  len = strlen(new_str);
+  if(str[str_len-1] != '/') 
+    new_str[len-1] = '\0';
+  free(path);
+  return new_str;
 }

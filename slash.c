@@ -691,18 +691,23 @@ char** get_paths(char** input, char** output) {
 }
 
 char** cut_path(char* path, char* delim) {
-  // path  = *words
-  int size = 10;
-  char* tmp;
-  char** sub_paths = malloc(sizeof(char*) * size + 1);
+  int size = 10, len = 0;
+  char* old_path = path, *tmp = NULL, *star = NULL, *end = NULL,
+  *token = NULL, *slash = NULL;
+  char** sub_paths = NULL;
+  // Le tableau qui va contenir les morceaux du path (coupé après chaque '*')
+  sub_paths = malloc(sizeof(char*) * size + 1);
+  if(sub_paths == NULL)
+    goto error;
+  // En cas de goto error et de free_double_ptr(sub_paths)
+  // il faut absolument qu'il y est un NULL toujours dans la derniere case
+  sub_paths[0] = NULL;
 
-  char* star = strchr(path, '*');
+  star = strchr(path, '*');
   if(star == NULL) {
     tmp = malloc(strlen(path) + 1);
-    if(tmp == NULL) {
-      perror("malloc failed");
-      return NULL;
-    }
+    if(tmp == NULL)
+      goto error;
     strcpy(tmp, path);
     sub_paths[0] = tmp;
     sub_paths[1] = NULL;
@@ -710,92 +715,85 @@ char** cut_path(char* path, char* delim) {
   }
 
   // On fait une copie de path
-  tmp = malloc(strlen(path) + 2);
-  // Check malloc
+  tmp = malloc(strlen(path) + 2); // +2 pour ' ' et '\0'
+  if(tmp == NULL)
+    goto error;
   // On ajoute un espace en plus pour éviter un bug si
   // le path commence par une étoile
   strcpy(tmp, " ");
-  // tmp = " "
   strcat(tmp, path);
-  // tmp = " *words"
   path = tmp;
 
-  char* end = strchr(path, '\0');
-
-  char* token = strtok(path, delim);
-  // token = " "
-  // path = "words"
+  end = strchr(path, '\0'); // Ne peux pas échouer
+  token = strtok(path, delim);
+  
   if(token == NULL) {
-    tmp = malloc(strlen(path) + 1);
-    if(tmp == NULL) {
-      perror("malloc failed"); 
-      free(sub_paths);
-      return NULL;
-    }
-    strcpy(tmp, path);
+    tmp = copy_str(old_path);
+    if(tmp == NULL)
+      goto error;
     sub_paths[0] = tmp;
     sub_paths[1] = NULL;
     return sub_paths;
   }
-
-  tmp = malloc(strlen(token) + 1);
-  // Check malloc
+  
+  tmp = malloc(strlen(token) + 2); // +2 car taille pour '*' et '\0'
+  if(tmp == NULL)
+    goto error;
   strcpy(tmp, token);
   strcat(tmp, "*");
-  // tmp = " "
-  
-  char* slash = NULL;
-  int len = 0;
+
   while(token != NULL) {
     if(len >= size - 1) {
       char** ptr = realloc(sub_paths, size * 2 * sizeof(char*));
+      if(ptr == NULL)
+        goto error;
       size *= 2;
       sub_paths = ptr;
     }
     
-    // token = "words"
-    if(token != NULL) {
-      if(len > 0) {
-        slash = strchr(token, '/');
-        // pas de slash
-        if(slash != NULL) {
-          // C'est ici qu'est la fin du mot
-          *slash = '\0';
-          
-          // On copie le bout avant le '/' sur le mot d'avant
-          tmp = realloc(sub_paths[len-1], strlen(sub_paths[len-1]) + strlen(token) + 1);
-          // Vérifier realloc...
-          strcat(tmp, token);
-          sub_paths[len-1] = tmp;
+    if(len > 0) {
+      slash = strchr(token, '/');
+      // si il y a un slash
+      if(slash != NULL) {
+        // C'est ici qu'est la fin du mot
+        *slash = '\0';
+        
+        // On copie le bout avant le '/' sur le mot d'avant
+        tmp = realloc(sub_paths[len-1], strlen(sub_paths[len-1]) + strlen(token) + 1);
+        if(tmp == NULL)
+          goto error;
+        strcat(tmp, token);
+        sub_paths[len-1] = tmp;
 
-          // Puis, on copie le bout après le slash avec une étoile en plus
-          // Pour ça, il suffit de dire que token = slash
-          token = slash + 1;
-          if(token == end) {
-            break;
-          }
-        }
-        else {
-          tmp = realloc(sub_paths[len-1], strlen(sub_paths[len-1]) + strlen(token) + 1);
-          strcat(tmp, token);
+        // Puis, on copie le bout après le slash avec une étoile en plus
+        // Pour ça, il suffit de dire que token = slash
+        token = slash + 1;
+        if(token == end) {
           break;
         }
       }
-    }
+      else {
+        tmp = realloc(sub_paths[len-1], strlen(sub_paths[len-1]) + strlen(token) + 1);
+        if(tmp == NULL)
+          goto error;
+        strcat(tmp, token);
+        sub_paths[len-1] = tmp;
+        break;
+      }
 
-    if(len > 0) {
       tmp = malloc(strlen(token) + 2);
-      /* On vérifie si on est sur le dernier mot*/
+      if(tmp == NULL)
+        goto error;
       strcpy(tmp, token);
-      //if(len == 0 && token[strlen(token)-1] != path[path_len-1])
       strcat(tmp, "*");
     }
-    sub_paths[len] = tmp;
-    
-    len++;
+
+    sub_paths[len++] = tmp;
+    // Pour ne pas qu'il y est de crash en cas d'appel de free_double_ptr
+    sub_paths[len] = NULL;
     token = strtok(NULL, delim);
   }
-
+  
   // On supprime l'espace rajouté au debut et qui est dans le premier token
   size_t new_size = strlen(sub_paths[0]) - 1;
   memmove(sub_paths[0], sub_paths[0] + 1, new_size);
@@ -804,15 +802,25 @@ char** cut_path(char* path, char* delim) {
   if(len > 0) {
     char* word = sub_paths[len-1];
     size_t len_word = strlen(word);
-    if(len_word > 1 && word[len_word-1] == '*' && word[len_word-2] != '/') {
+    if(len_word > 1 && word[len_word-1] == '*' && word[len_word-2] != '/')
       word[len_word-1] = '\0';
-    }
   }
 
-  sub_paths[len] = NULL;
-  //disp_double_ptr(sub_paths);
+  // Un NULL est toujours présent à la fin donc cette ligne
+  // n'est plus necessaire.
+  // sub_paths[len] = NULL;
   free(path);
   return sub_paths;
+
+  error:
+    perror("Error malloc or realloc in cut_paths");
+    if(sub_paths)
+      free_double_ptr(sub_paths);
+    if(tmp)
+      free(tmp);
+    if(path && path != old_path)
+      free(path);
+    return NULL;
 }
 
 void disp_double_ptr(char** ptr) {
@@ -950,49 +958,4 @@ char*** get_tokens_paths(char** tokens) {
   }
 
   return tab;
-}
-
-char* copy_str(char* str) {
-  if(str == NULL)
-    return NULL;
-  char* new_str = malloc(strlen(str) + 1);
-  if(new_str == NULL) {
-    perror("Error malloc copy_str");
-    return NULL;
-  }
-  return strcpy(new_str, str);
-}
-
-// On pourrait envisager de faire un trim(str) pour ne pas avoir de probleme
-// Elle fonctionne uniquement si il n'y a pas d'espace au début et à la fin de str
-char* remove_slashes(char* str) {
-  if(str == NULL)
-    return NULL;
-  char* path = copy_str(str);
-  if(path == NULL) // perror in copy_str
-    return NULL;
-  if(strchr(path, '/') == NULL)
-    return path;
-  size_t str_len = strlen(str);
-  char* new_str = malloc(str_len + 2);
-  if(new_str == NULL) {
-    perror("error malloc remove_slashes");
-    return NULL;
-  }
-  int len = 0;
-  if(str[0] == '/')
-    new_str[len++] = '/';
-  new_str[len] = '\0';
-
-  char* token = strtok(path, "/");
-  while(token != NULL) {
-    strcat(new_str, token);
-    strcat(new_str, "/");
-    token = strtok(NULL, "/");
-  }
-  len = strlen(new_str);
-  if(str[str_len-1] != '/') 
-    new_str[len-1] = '\0';
-  free(path);
-  return new_str;
 }
