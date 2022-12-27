@@ -1,15 +1,10 @@
 #include "slash.h"
 
-
-
-
-//////Les fonctions auxiliaires de slash_ ?
-//A voir
-
 void catchSignal(int signal) {
   exit_status = signal;
 }
 
+/* Renvoie la string avec "..." si sa taille depasse max_path_size */
 char * get_shorter_path(char * string, int max_path_size) {
   // Get len of current path:
   int path_len = strlen(string);
@@ -136,13 +131,7 @@ int push_string(char* buffer, char* str) {
   return exit_status;
 }
 
-
-
-//////Les fonctions auxiliaires de slash_cd
-//Mais push_string utilisé aussi ici donc ?
-
-
-// real_path permet d'obtenir le chemin absolue avec les liens symboliques et propre (sans .. ou . ou ///)
+/* real_path permet d'obtenir le chemin absolue avec les liens symboliques et propre (sans .. ou . ou ///) */
 char* real_path(char* p) {
 
   char* path = malloc(strlen(p)+1);
@@ -284,6 +273,26 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
     return 1;
 }
 
+/* Permet d'executer une commande externe avec plusieurs arguments */
+void exec(char** tokens) {
+  switch (fork()) {
+      case -1 :
+        perror("slash");
+        return;
+      case 0 :
+        execvp((const char*) tokens[0], tokens); // On execute cette commande externe dans un processus fils 
+        // Si il y a une erreur, par exemple si la commande n'existe pas
+        exit_status = 127;
+        perror("slash");
+        exit(exit_status);
+    }
+    int w;
+    wait(&w);
+    if(WIFEXITED(w))
+      exit_status = WEXITSTATUS(w);
+}
+
+/* Renvoie une copie de str */
 char* copy_str(char* str) {
   if(str == NULL)
     return NULL;
@@ -295,6 +304,17 @@ char* copy_str(char* str) {
   return strcpy(new_str, str);
 }
 
+/* Vérifie si un fichier/repertoire existe. Renvoie 1 si c'est le cas, 0 sinon */
+int file_exists(char* file) {
+  int fd = open(file, O_RDONLY);
+  if(fd < 0) {
+    return 0;
+  }
+  close(fd);
+  return 1;
+}
+
+/* Permet de retirer tous les slashs en trop dans str */
 // On pourrait envisager de faire un trim(str) pour ne pas avoir de probleme
 // Elle fonctionne uniquement si il n'y a pas d'espace au début et à la fin de str
 char* remove_slashes(char* str) {
@@ -327,4 +347,110 @@ char* remove_slashes(char* str) {
     new_str[len-1] = '\0';
   free(path);
   return new_str;
+}
+
+/* Permet de concatener deux tableaux (char**) */
+// (int* target_size) -> Pointeur sur int car la taille de target peut changer
+char** concat(char** target, int* target_size, char** source) {
+  if(target == NULL || source == NULL || target_size == NULL) {
+    fprintf(stderr, "concat: target, source ou target_size égale à NULL\n");
+    return NULL;
+  }
+  int i;
+  for(i=0;target[i]!= NULL;i++)
+    ;
+  for(int j=0; source[j] != NULL;j++) {
+    if(i >= *target_size - 1) {
+      char** ptr = realloc(target, sizeof(char*) * (*target_size * 2));
+      if(ptr == NULL) {
+        perror("failed realloc");
+        return target;
+      }
+      target = ptr;
+      *target_size *= 2;
+    }
+    char* str = malloc(strlen(source[j])+1);
+    if(str == NULL) {
+      perror("malloc in concat");
+      return target;
+    }
+    strcpy(str, source[j]);
+    target[i++] = str;
+  }
+  target[i] = NULL;
+
+  return target;
+}
+
+/* Permet d'aplatir un tableau à deux dimensions de string, en tableau de string */
+char** flat_triple_tab(char*** tab) {
+  int capacity = 10;
+  int len = 0;
+  char** r = malloc(sizeof(char*) * capacity);
+  if(r == NULL) {
+    perror("error malloc flat_triple_tab");
+    return NULL;
+  }
+  for(int i=0;i<capacity;i++)
+    r[i] = NULL;
+  for(int j=0;tab[j] != NULL;j++) {
+    for(int i=0;tab[j][i] != NULL;i++) {
+      if(len >= capacity - 1) {
+        char** ptr = realloc(r, sizeof(char*) * capacity * 2);
+        if(ptr == NULL) {
+          perror("realloc error flat function");
+          free_double_ptr(r);
+          return NULL;
+        }
+        capacity *= 2;
+        r = ptr;
+      }
+      char* cpy = malloc(strlen(tab[j][i]) + 1);
+      if(cpy == NULL) {
+          perror("malloc error flat function");
+          free_double_ptr(r);
+          return NULL;
+      }
+      strcpy(cpy, tab[j][i]);
+      r[len] = cpy;
+      len++;
+    }
+    r[len] = NULL;
+  }
+  return r;
+}
+
+/* Permet de free un tableau de chaines de caractères */
+void free_double_ptr(char** ptr) {
+  // printf("FREE: \n");
+  for(int i=0;ptr[i] != NULL;i++) {
+    // printf("free en cours %p %s\n", ptr+i, ptr[i]);
+    free(ptr[i]);
+  }
+  free(ptr);
+}
+
+/* Permet de free un tableau à deux dimensions de chaines de caractères */
+void free_triple_ptr(char*** ptr) {
+  // printf("FREE: \n")
+  for(int i=0;ptr[i] != NULL;i++) {
+    // printf("free en cours %p %s\n", ptr+i, ptr[i]);
+    free_double_ptr(ptr[i]);
+  }
+  free(ptr);
+}
+
+/* Affiche un tableau de chaines de caractères */
+void disp_double_ptr(char** ptr) {
+  for(int j=0;ptr[j] != NULL;j++) {
+    printf("CASE %d: %s\n", j, ptr[j]);
+  }
+}
+
+/* Affiche un tableau à deux dimensions de chaines de caractères */
+void disp_triple_ptr(char*** ptr) {
+  for(int i=0;ptr[i] != NULL;i++) {
+    printf("CASE_TRIPLE %d:\n", i);
+    disp_double_ptr(ptr[i]);
+  }
 }

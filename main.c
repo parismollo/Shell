@@ -18,37 +18,20 @@ int main() {
       char **tokens = slash_interpret(prompt_line);
       // Step 3: Execute input:
       if(tokens) {
+        /* Test de la double étoile */
+        // char** djok = total_expansion("**/....");
+        // disp_double_ptr(djok);
+        // free_double_ptr(djok);
+
         char*** paths = get_tokens_paths(tokens);
-        // disp_triple_ptr(paths);
-
-        // for(int i=0; paths[i] != NULL; i++) {
-        //   printf("DEBUT Résultat %d:\n", i);
-        //   for(int j=0; paths[i][j] != NULL; j++) {
-        //     printf("Résultat étoile : %s\n", paths[i][j]);
-        //   }
-        // }
-
-        // char* temp_tokens[MAX_ARGS_NUMBER + 1];
-        // temp_tokens[0] = tokens[0];
-        // temp_tokens[1] = NULL;
-
-        // for(int i=2;i<MAX_ARGS_NUMBER;i++)
-        //   temp_tokens[i] = NULL;
-        
-        // disp_double_ptr(flat_triple_tab(paths));
-        
-        // exec_all(paths, temp_tokens, 1);
-
         char** flat_tokens = flat_triple_tab(paths);
+        
         if(flat_tokens) {
-          //disp_double_ptr(flat_tokens);
           slash_exec(flat_tokens);
           free_double_ptr(flat_tokens);
         }
 
         free_triple_ptr(paths);
-        
-        //slash_exec(tokens);
       }
       free(tokens);
     }

@@ -130,7 +130,9 @@ char **slash_interpret(char *line) {
   // We set to null the last element so we know when to stop while looping.
   tokens[len] = NULL;
   // Temporary
-  for(int i = len; i<100; i++) {tokens[i] = NULL;}
+  for(int i = len; i<100; i++)
+    tokens[i] = NULL;
+
   return tokens;
 }
 
@@ -140,41 +142,6 @@ void slash_exec(char **tokens) {
   
   // If there is nothing to execute, leave this function. 
   if(tokens[0] == NULL) return;
-  
-  // Test jokers expansion
-  // For each token (starting from 1) run expansion and print
-  // int i = 1;
-  // char **results;
-  // while(tokens[i] != NULL) {
-  //   results = joker_expansion(tokens[i++]);
-  //   int j = 0;
-  //   while(results[j] != NULL) {
-  //     printf("%s\n", results[j++]);
-  //   }
-  //   get_paths(results);
-  //   free_double_ptr(results);
-  // }
-  
-  // TESTS POUR GET_PATHS
-  
-  // char* input[] = {"a/*", "c/*", NULL};
-  
-  // char** paths = get_paths(input, NULL);
-  // printf("PATHS: %p\n", paths[0]);
-  // for(int i=0; paths[i] != NULL; i++) {
-  //   printf("%s\n", paths[i]);
-  // }
-  // free_double_ptr(paths);
-  
-
-  // TESTS POUR GET_TOKENS_PATHS
-  // char*** example = get_tokens_paths(tokens);
-  // for(int i=0; example[i] != NULL; i++) {
-  //   printf("TAB [%d]:\n", i);
-  //   for(int j=0; example[i][j] != NULL; j++) {
-  //     printf("Element %d: %s\n", j, example[i][j]);
-  //   }
-  // }
 
   // Loop over all builtin methods.
   int library_size = sizeof(library) / sizeof(library[0]);
@@ -189,12 +156,10 @@ void slash_exec(char **tokens) {
         return;
     }
   }
-  if(no_command) { //Si la commande n'est pas une commande interne
+  if(no_command) { // Si la commande n'est pas une commande interne
     exec(tokens);
   }
 }
-
-
 
 // PWD affiche la (plus précisément, une) référence absolue du répertoire de travail courant
 int slash_pwd(char** args) {
@@ -410,539 +375,41 @@ int slash_cd(char **args)
     return 1;
 }
 
-int file_exists(char* file) {
-  int fd = open(file, O_RDONLY);
-  if(fd < 0) {
-    return 0;
-  }
-  close(fd);
-  return 1;
-}
-
-char** joker_expansion(char* path) {
-  char* star = strchr(path, '*');
-  if(star == NULL) {
-    // On vérifie si le fichier ou dossier existe.
-    // Si oui on le renvoie dans un tableau 2 cases (NULL a la fin)
-    // Sinon on renvoie NULL
-    if(!file_exists(path)) {
-      return NULL;
-    }
-    // On fait un tableau char** avec juste le path
-    char** no_joker = malloc(sizeof(char*) * 2);
-    if(no_joker == NULL) {
-      return NULL;
-    }
-    char* tmp = malloc(strlen(path) + 1);
-    if(tmp == NULL) {
-      free(no_joker);
-      return NULL;
-    }
-    strcpy(tmp, path);
-    no_joker[0] = tmp;
-    no_joker[1] = NULL;
-    return no_joker;
-  }
-  *star = '\0';
-
-  char* new_path = malloc(strlen(path) + 1);
-  if(new_path == NULL)
-    return NULL;
-  // words/
-  strcpy(new_path, path);
-  
-  *star = '*';
-
-  DIR* dir;
-  
-  if(*new_path == '\0') {
-    dir = opendir(".");
-  } 
-  else {
-    dir = opendir(new_path);
-  }
-  // printf("OPENING folder: %s\n", realpath);
-  if(dir == NULL) {
-    free(new_path);
-    // perror("Erreur ouverture dossier");
-    // Pas de perror. Car l'expansion d'un joker peut échouer.
-    // On ne veut pas pour autant afficher cette erreur
-    return NULL;
-  }
-  
-  char** list = malloc(sizeof(char*) * 5);
-  if(list == NULL) {
-    free(new_path);
-    perror("Erreur malloc");
-    return NULL;
-  }
-  int lsize = 5, counter = 0;
-
-  char temp[PATH_MAX];
-  struct dirent* entry;
-  while((entry = readdir(dir)) != NULL) {
-    if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-      continue;
-
-    // On verifie si le nom de l'entree respect le pattern imposé par le joker
-    // On verifie aussi qu'il ne s'agit pas d'un fichier ou dossier caché
-    //printf("star: %s, entry->name: %s, %ld, %ld\n", star, entry->d_name, strlen(star), strlen(entry->d_name));
-    if(joker_cmp(star, entry->d_name) && entry->d_name[0] != '.') {
-      
-      if(counter+1 >= lsize) {
-        char** ptr = realloc(list, lsize * 2 * sizeof(char*));
-        if(ptr == NULL) {
-          free(new_path); //ici
-          free_double_ptr(list);
-          closedir(dir);
-          perror("malloc");
-          goto error;
-        }
-        lsize *=2;
-        list = ptr; 
-      }
-
-      // Attention ici. Peut être qu'il faut vérifier si on dépasse PATH_MAX caractères.
-      strcpy(temp, new_path); //ici
-      // if(*new_path != '\0') {
-      //   strcat(temp, "/");
-      // }
-      strcat(temp, entry->d_name);
-
-      char* temp2 = malloc(strlen(temp) + 1);
-      if(temp2 == NULL) {
-        free(new_path);
-        free_double_ptr(list);
-        closedir(dir);
-        perror("malloc");
-        goto error;
-      }
-      strcpy(temp2, temp);
-      
-      list[counter++] = temp2;
-    }
-  }
-  list[counter] = NULL;
-  free(new_path);//ici
-  closedir(dir);
-  return list;
-  
-  error:
-    if(dir)
-      closedir(dir);
-    if(list)
-      free(list);
-    return NULL;
-}
-
-int joker_cmp(char* joker, char* name) {
-  char* target = joker + 1;
-  if(*target == '\0')
-    return 1;
-  // char * pos = strchr(name, *target);
-  // *ad
-  // _aaaad
-  int j = strlen(name) -1;
-  int i = strlen(joker)-1;
-  for(; joker[i] != '*' && i >= 0 && j >= 0; i--, j--) {  
-      if(joker[i] != name[j]) {
-        return false;
-      }
-  }
-  if(j < 0 && joker[i] != '*') {
-    return false;
-  }
-  return true;
-}
-
-void free_double_ptr(char** ptr) {
-  // printf("FREE: \n");
-  for(int i=0;ptr[i] != NULL;i++) {
-    // printf("free en cours %p %s\n", ptr+i, ptr[i]);
-    free(ptr[i]);
-  }
-  free(ptr);
-}
-
-void free_triple_ptr(char*** ptr) {
-  // printf("FREE: \n")
-  for(int i=0;ptr[i] != NULL;i++) {
-    // printf("free en cours %p %s\n", ptr+i, ptr[i]);
-    free_double_ptr(ptr[i]);
-  }
-  free(ptr);
-}
-
-// (int* target_size) -> Pointeur sur int car la taille de target peut changer
-char** concat(char** target, int* target_size, char** source) {
-  if(target == NULL || source == NULL || target_size == NULL) {
-    fprintf(stderr, "concat: target, source ou target_size égale à NULL\n");
-    return NULL;
-  }
-  int i;
-  for(i=0;target[i]!= NULL;i++)
-    ;
-  for(int j=0; source[j] != NULL;j++) {
-    if(i >= *target_size - 1) {
-      char** ptr = realloc(target, sizeof(char*) * (*target_size * 2));
-      if(ptr == NULL) {
-        perror("failed realloc");
-        return target;
-      }
-      target = ptr;
-      *target_size *= 2;
-    }
-    char* str = malloc(strlen(source[j])+1);
-    if(str == NULL) {
-      perror("malloc in concat");
-      return target;
-    }
-    strcpy(str, source[j]);
-    target[i++] = str;
-  }
-  target[i] = NULL;
-
-  return target;
-}
-
-char** get_paths(char** input, char** output) {
-  // input = ["a/*", "c/*", NULL];
-  // output = NULL 
-
-  //DEBUG OUTPUT TAB
-  // for(int i=0;output != NULL && output[i] != NULL;i++) {
-  //   printf("output : %s\n", output[i]);
-  // }
-  // puts("\n");
-  if(input == NULL) {
-    fprintf(stderr, "get_paths: Le tableau input ne doit pas etre NULL\n");
-    return NULL;
-  }
-
-  if(output == NULL) {
-    if(input[0] == NULL) {
-      fprintf(stderr, "get_paths: output et input sont NULL ou vides\n");
-      return NULL;
-    }
-    
-    char** aux = malloc(sizeof(char*) * 2);
-    if(aux == NULL) {
-      perror("malloc failed");
-      return NULL;
-    }
-    // aux = ["", ""]
-    aux[0] = NULL;
-    // aux = [NULL, ""]
-    char* str = malloc(strlen(input[0])+1);
-    // str = "    " taille 4
-    if(str == NULL) {
-      perror("malloc in concat");
-      free_double_ptr(aux);
-      return NULL;
-    }
-    strcpy(str, input[0]);
-    // str = "a/*"
-    aux[0] = str;
-    // aux = ["a/*", ""]
-    aux[1] = NULL;  
-    // aux = ["a/*", NULL]
-    // not checked here about input+1
-    return get_paths(input+1, aux);
-  }
-
-  int flat_size = 10;
-  char** flat = malloc(sizeof(char*) * flat_size);
-  // flat = [[],[],[], ....]
-  if(flat == NULL) {
-    perror("erreur malloc get_paths");
-    return NULL;
-  }
-  *flat = NULL;
-  // flat = [NULL, .....]
-  for(int i=0;output[i] != NULL;i++) {
-    char** expansion = joker_expansion(output[i]);
-    //printf("EXPANSION de %s\n", output[i]);
-    // disp_double_ptr(expansion);
-    if(expansion == NULL) {
-      // Cela signifie que aucun fichier/dossier ne matche avec le joker output[i]
-      // On passe donc au suivant, avec un continue
-      continue;
-    }
-    flat = concat(flat, &flat_size, expansion);
-    free_double_ptr(expansion);
-  }
-  free_double_ptr(output);
-  if(input[0] == NULL) {
-    return flat;
-  }
-
-  for(int i=0;flat[i] != NULL; i++) {
-    char* ptr = realloc(flat[i], strlen(flat[i]) + 1 + strlen(input[0]) + 1);
-    if(ptr == NULL) {
-      free_double_ptr(flat);
-      return NULL;
-    }
-    flat[i] = ptr;
-    strcat(flat[i], "/");
-    strcat(flat[i], input[0]); 
-  }
-
-  return get_paths(input+1, flat);
-}
-
-char** cut_path(char* path, char* delim) {
-  int size = 10, len = 0;
-  char* old_path = path, *tmp = NULL, *star = NULL, *end = NULL,
-  *token = NULL, *slash = NULL;
-  char** sub_paths = NULL;
-  // Le tableau qui va contenir les morceaux du path (coupé après chaque '*')
-  sub_paths = malloc(sizeof(char*) * size + 1);
-  if(sub_paths == NULL)
-    goto error;
-  // En cas de goto error et de free_double_ptr(sub_paths)
-  // il faut absolument qu'il y est un NULL toujours dans la derniere case
-  sub_paths[0] = NULL;
-
-  star = strchr(path, '*');
-  if(star == NULL) {
-    tmp = malloc(strlen(path) + 1);
-    if(tmp == NULL)
-      goto error;
-    strcpy(tmp, path);
-    sub_paths[0] = tmp;
-    sub_paths[1] = NULL;
-    return sub_paths;
-  }
-
-  // On fait une copie de path
-  tmp = malloc(strlen(path) + 2); // +2 pour ' ' et '\0'
-  if(tmp == NULL)
-    goto error;
-  // On ajoute un espace en plus pour éviter un bug si
-  // le path commence par une étoile
-  strcpy(tmp, " ");
-  strcat(tmp, path);
-  path = tmp;
-
-  end = strchr(path, '\0'); // Ne peux pas échouer
-  token = strtok(path, delim);
-  
-  if(token == NULL) {
-    tmp = copy_str(old_path);
-    if(tmp == NULL)
-      goto error;
-    sub_paths[0] = tmp;
-    sub_paths[1] = NULL;
-    return sub_paths;
-  }
-  
-  tmp = malloc(strlen(token) + 2); // +2 car taille pour '*' et '\0'
-  if(tmp == NULL)
-    goto error;
-  strcpy(tmp, token);
-  strcat(tmp, "*");
-
-  while(token != NULL) {
-    if(len >= size - 1) {
-      char** ptr = realloc(sub_paths, size * 2 * sizeof(char*));
-      if(ptr == NULL)
-        goto error;
-      size *= 2;
-      sub_paths = ptr;
-    }
-    
-    if(len > 0) {
-      slash = strchr(token, '/');
-      // si il y a un slash
-      if(slash != NULL) {
-        // C'est ici qu'est la fin du mot
-        *slash = '\0';
-        
-        // On copie le bout avant le '/' sur le mot d'avant
-        tmp = realloc(sub_paths[len-1], strlen(sub_paths[len-1]) + strlen(token) + 1);
-        if(tmp == NULL)
-          goto error;
-        strcat(tmp, token);
-        sub_paths[len-1] = tmp;
-
-        // Puis, on copie le bout après le slash avec une étoile en plus
-        // Pour ça, il suffit de dire que token = slash
-        token = slash + 1;
-        if(token == end) {
-          break;
-        }
-      }
-      else {
-        tmp = realloc(sub_paths[len-1], strlen(sub_paths[len-1]) + strlen(token) + 1);
-        if(tmp == NULL)
-          goto error;
-        strcat(tmp, token);
-        sub_paths[len-1] = tmp;
-        break;
-      }
-
-      tmp = malloc(strlen(token) + 2);
-      if(tmp == NULL)
-        goto error;
-      strcpy(tmp, token);
-      strcat(tmp, "*");
-    }
-
-    sub_paths[len++] = tmp;
-    // Pour ne pas qu'il y est de crash en cas d'appel de free_double_ptr
-    sub_paths[len] = NULL;
-    token = strtok(NULL, delim);
-  }
-  
-  // On supprime l'espace rajouté au debut et qui est dans le premier token
-  size_t new_size = strlen(sub_paths[0]) - 1;
-  memmove(sub_paths[0], sub_paths[0] + 1, new_size);
-  sub_paths[0][new_size] = '\0';
-
-  if(len > 0) {
-    char* word = sub_paths[len-1];
-    size_t len_word = strlen(word);
-    if(len_word > 1 && word[len_word-1] == '*' && word[len_word-2] != '/')
-      word[len_word-1] = '\0';
-  }
-
-  // Un NULL est toujours présent à la fin donc cette ligne
-  // n'est plus necessaire.
-  // sub_paths[len] = NULL;
-  free(path);
-  return sub_paths;
-
-  error:
-    perror("Error malloc or realloc in cut_paths");
-    if(sub_paths)
-      free_double_ptr(sub_paths);
-    if(tmp)
-      free(tmp);
-    if(path && path != old_path)
-      free(path);
-    return NULL;
-}
-
-void disp_double_ptr(char** ptr) {
-  for(int j=0;ptr[j] != NULL;j++) {
-    printf("CASE %d: %s\n", j, ptr[j]);
-  }
-}
-
-void disp_triple_ptr(char*** ptr) {
-  for(int i=0;ptr[i] != NULL;i++) {
-    printf("CASE_TRIPLE %d:\n", i);
-    disp_double_ptr(ptr[i]);
-  }
-}
-
-void exec(char** tokens) {
-  switch (fork()) {
-      case -1 :
-        perror("slash");
-        return;
-      case 0 :
-        execvp((const char*) tokens[0], tokens);//On execute cette commande externe dans un processus fils 
-        //Si il y a une erreur, par exemple si la commande n'existe pas
-        exit_status = 127;
-        perror("slash");
-        exit(exit_status);
-    }
-    int w;
-    wait(&w);
-    if(WIFEXITED(w))
-      exit_status = WEXITSTATUS(w);
-}
-
-
-char** flat_triple_tab(char*** tab) {
-  int capacity = 10;
-  int len = 0;
-  char** r = malloc(sizeof(char*) * capacity);
-  if(r == NULL) {
-    perror("error malloc flat_triple_tab");
-    return NULL;
-  }
-  for(int i=0;i<capacity;i++)
-    r[i] = NULL;
-  for(int j=0;tab[j] != NULL;j++) {
-    for(int i=0;tab[j][i] != NULL;i++) {
-      if(len >= capacity - 1) {
-        char** ptr = realloc(r, sizeof(char*) * capacity * 2);
-        if(ptr == NULL) {
-          perror("realloc error flat function");
-          free_double_ptr(r);
-          return NULL;
-        }
-        capacity *= 2;
-        r = ptr;
-      }
-      char* cpy = malloc(strlen(tab[j][i]) + 1);
-      if(cpy == NULL) {
-          perror("malloc error flat function");
-          free_double_ptr(r);
-          return NULL;
-      }
-      strcpy(cpy, tab[j][i]);
-      r[len] = cpy;
-      len++;
-    }
-    r[len] = NULL;
-  }
-  return r;
-}
-
-// Au premier appel, tokens doit être alloué avec le nom du programme à executer
-// comme 1er element
-// paths et tokens doivent contenir un NULL à la fin
-// Pour l'instant tokens à une taille de MAX_ARGS=4096.
-
-// ATTENTION ICI free(tokens) suffit. PAS DE FREE_DOUBLE_PTR.
-// car tokens contient uniquement des liens vers les string dans paths
-void exec_all(char*** paths, char** tokens, int index) {
-  char** tab = paths[index];
-
-  if(tab == NULL) {
-    slash_exec(tokens);
-    return;
-  }
-  
-  //  for(int i=0;i<=1;i++)
-  //    printf("tab[%d] = %s\n", i, tab[i]);
-
-  for(int i=0;tab[i] != NULL;i++) {
-    tokens[index] = tab[i];
-    exec_all(paths, tokens, index+1);
-  }
-  tokens[index] = NULL;
-}
-
 char*** get_tokens_paths(char** tokens) {
   int tab_capacity = 10;
   int tab_size = 0;
   char*** tab = malloc(sizeof(char**) * tab_capacity );
-  
-  if(tab ==  NULL) {perror("malloc failed"); return NULL;}
+  if(tab ==  NULL) {
+    perror("malloc failed");
+    return NULL;
+  }
+
   for(int i=0; tokens[i] != NULL; i++) {
     if(tab_size >= tab_capacity - 1) {
       char*** ptr = realloc(tab, sizeof(char**) * tab_capacity * 2);
-      if(ptr == NULL) {perror("malloc failed"); return NULL;} 
+      if(ptr == NULL) {
+        perror("malloc failed");
+        return NULL;
+      } 
       tab_capacity*=2;
       tab = ptr;
     }
-    char** cut = cut_path(tokens[i], "*");
-    // [*words; *choice]
-    // disp_double_ptr(cut);
-    char* star = strchr(tokens[i], '*');
-    if(star != NULL) {
-      // disp_double_ptr(cut);
-      tab[tab_size] = get_paths(cut, NULL);
-      // printf("ICI\n");
-      // disp_double_ptr(tab[tab_size]);
-      free_double_ptr(cut);
+
+    if(prefix(tokens[i], "**/")) {
+      tab[tab_size] = total_expansion(tokens[i]);
     }
     else {
-      tab[tab_size] = cut;
+      char** cut = cut_path(tokens[i], "*");
+      // [*words; *choice]
+      
+      char* star = strchr(tokens[i], '*');
+      if(star != NULL) {
+        tab[tab_size] = get_paths(cut, NULL);
+        free_double_ptr(cut);
+      }
+      else {
+        tab[tab_size] = cut;
+      }
     }
     
     tab_size++;

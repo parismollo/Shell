@@ -29,48 +29,68 @@ extern int exit_status;
 
 // Structures
 typedef struct command {
-  char *name;
-  int (*function) (char **args);
+  char* name;
+  int (*function) (char** args);
 
 }command;
 
-// Slash Fonctions
+typedef struct {
+  size_t capacity;
+  size_t length;
+  char* data;
+}string;
+
+// Fonctions
+
+/* slash.c */
+int slash_help(char** args);
+int slash_exit(char** args);
 void slash_read();
-char **slash_interpret(char *line);
-void slash_exec(char **tokens);
-int slash_exit(char **args);
-int slash_help(char **args);
+char** slash_interpret(char* line);
+void slash_exec(char** tokens);
 int slash_pwd(char** args);
-char *slash_get_prompt();
-int slash_cd(char **args);
-char** joker_expansion(char* path);
+char* slash_get_prompt();
+int slash_cd(char** args);
+char*** get_tokens_paths(char** tokens);
 
-// Auxiliary
-int main();
 
+/* slash_aux.c */
+void catchSignal(int signal);
+char* get_shorter_path(char* string, int max_path_size);
+char* get_exit_status();
+char* get_color(int n);
 int is_root(DIR *dir);
 char* get_dirname(DIR* dir, DIR* parent);
 int push_string(char* buffer, char* str);
-char * get_color(int n);
-char * get_exit_status();
-char * get_shorter_path(char * string, int max_path_size);
-void catchSignal(int signal);
 char* real_path(char* p);
 void error_chdir();
 int slash_cd_aux(char option, const char* pwd, char *args);
-void free_double_ptr(char** ptr);
-void catchSignal(int signal);
-int joker_cmp(char* joker, char* name);
-
-char** get_paths(char** input, char** output);
-char*** get_tokens_paths(char** tokens);
 void exec(char** tokens);
-void exec_all(char*** paths, char** tokens, int index);
+char* copy_str(char* str);
+int file_exists(char* file);
+char* remove_slashes(char* str);
+char** concat(char** target, int* target_size, char** source);
+char** flat_triple_tab(char*** tab);
+void free_double_ptr(char** ptr);
 void free_triple_ptr(char*** ptr);
 void disp_double_ptr(char** ptr);
 void disp_triple_ptr(char*** ptr);
-char** flat_triple_tab(char*** tab);
-char* remove_slashes(char* str);
-char* copy_str(char* str);
+
+
+/* jokers.c */
+char** joker_expansion(char* path);
+int joker_cmp(char* joker, char* name);
+char** get_paths(char** input, char** output);
+char** cut_path(char* path, char* delim);
+char** total_expansion(char* path);
+char*** total_expansion_aux(string* path, char* pattern, char*** exp, int* size, int* cap);
+int prefix(char* str, char* pre);
+
+/* mystring.c */
+
+string* string_new(size_t capacity);
+void string_delete(string* str);
+int string_append (string* dest, char* src);
+void string_truncate (string* str, size_t nchars);
 
 #endif
