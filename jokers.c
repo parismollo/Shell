@@ -365,25 +365,13 @@ int prefix(char* str, char* pre) {
     return strncmp(pre, str, strlen(pre)) == 0;
 }
 
-// /* Renvoit l'adresse de l'endroit où se trouve pattern dans str */
-// static char* first_occ(char* str, char* pattern) {
-//   char* ptr = str;
-//   while(*ptr != '\0' && !prefix(ptr++, pattern))
-//     ;
-//   return ptr;
-// }
-
-//// DEBUT JOKER DOUBLE "**/" ////
+//// DEBUT JOKER DOUBLE "**" ////
 
 /* Expansion de l'étoile double "**" */
-// On considère que le path doit commencer toujours par "**/"
+// On considère que le path doit toujours commencer par "**" ou "**/"
 char** total_expansion(char* path) {
-  // Inutile si on considère que le path doit commencer toujours par "**/"
-  // char* stars = first_occ(path, "**/");
-  // if(*stars == '\0')
-  //   return NULL;
   size_t path_size = strlen(path);
-  if(path_size < 3 || !(path[0] == '*' && path[1] == '*' && path[2] == '/'))
+  if(path_size < 2 || (!prefix(path, "**") && !prefix(path, "**/")))
     return NULL;
 
   int len = 0, cap = 10;
@@ -408,8 +396,12 @@ char** total_expansion(char* path) {
     string_delete(dir);
     return NULL;
   }
-  // +3 car on passe le "**/"
-  char*** paths = total_expansion_aux(dir, no_slashes + 3, exp, &len, &cap);
+
+  // Si on a juste '**' ou '**/' on considère que le pattern est '*' (on cherche tous fichiers dans l'arbo courante)
+  // Sinon on prend ce qu'il y a pres le '**/'
+  char* pattern = strlen(no_slashes) > 3 ? no_slashes + 3 : "*";
+
+  char*** paths = total_expansion_aux(dir, pattern, exp, &len, &cap);
   free(no_slashes);
   string_delete(dir);
   

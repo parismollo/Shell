@@ -395,7 +395,8 @@ char*** get_tokens_paths(char** tokens) {
       tab = ptr;
     }
 
-    if(prefix(tokens[i], "**/")) {
+    // On vérifie si on doit appliquer le double joker
+    if(prefix(tokens[i], "**")) {
       tab[tab_size] = total_expansion(tokens[i]);
     }
     else {
