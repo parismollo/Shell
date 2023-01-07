@@ -67,7 +67,7 @@ void error_chdir();
 int slash_cd_aux(char option, const char* pwd, char *args);
 void exec(char** tokens);
 char* copy_str(char* str);
-int file_exists(char* file);
+int file_exists(char* file, int is_directory);
 char* remove_slashes(char* str);
 char** concat(char** target, int* target_size, char** source);
 char** flat_triple_tab(char*** tab);
@@ -78,12 +78,12 @@ void disp_triple_ptr(char*** ptr);
 
 
 /* jokers.c */
-char** joker_expansion(char* path);
+char** joker_expansion(char* path, int only_dir);
 int joker_cmp(char* joker, char* name);
-char** get_paths(char** input, char** output);
+char** get_paths(char** input, char** output, int only_dir);
 char** cut_path(char* path, char* delim);
-char** total_expansion(char* path);
-char*** total_expansion_aux(string* path, char* pattern, char*** exp, int* size, int* cap);
+char** total_expansion(char* path, int only_dir);
+char*** total_expansion_aux(string* path, char* pattern, int only_dir, char*** exp, int* size, int* cap);
 int prefix(char* str, char* pre);
 
 /* mystring.c */

@@ -305,8 +305,12 @@ char* copy_str(char* str) {
 }
 
 /* Vérifie si un fichier/repertoire existe. Renvoie 1 si c'est le cas, 0 sinon */
-int file_exists(char* file) {
-  int fd = open(file, O_RDONLY);
+int file_exists(char* file, int is_directory) {
+  int fd;
+  if(is_directory)
+    fd = open(file, O_RDONLY | O_DIRECTORY);
+  else
+    fd = open(file, O_RDONLY);
   if(fd < 0) {
     return 0;
   }
