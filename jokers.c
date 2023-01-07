@@ -2,7 +2,10 @@
 
 /* Expansion d'un path contenant une seule et unique étoile */
 char** joker_expansion(char* path, int only_dir) {
-  char* star = strchr(path, '*');
+  // Ici, on effectu strrchr pour regarder la DERNIERE étoile dans le path
+  // Et non pas la première avec la strchr. Ce qui permet de corriger le bug
+  // avec les dossiers qui ont une étoile dans le nom! (le test avec *il)
+  char* star = strrchr(path, '*');
   if(star == NULL) {
     // On vérifie si le fichier ou dossier existe.
     // Si oui on le renvoie dans un tableau 2 cases (NULL a la fin)
