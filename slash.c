@@ -55,7 +55,7 @@ int slash_exit(char **args) {
   int status = atoi(args[1]);
 
   // atoi returns 0, if can't convert.
-  if(status == 0) {
+  if(status == 0 && strcmp(args[1], "0") != 0) {
     printf("slash: exiting with status 0\n");
     return 0;
   }
