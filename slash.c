@@ -139,7 +139,7 @@ char **slash_interpret(char *line) {
 
 void slash_exec(char **tokens) {
   // tokens should look like [["cd"], ["path/to/somewhere"]]
-  
+
   // If there is nothing to execute, leave this function. 
   if(tokens[0] == NULL) return;
 
