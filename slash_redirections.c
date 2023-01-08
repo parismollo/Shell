@@ -34,11 +34,12 @@ int arr_len = 8;
 char* arr[] = {">", "<", ">|", ">>", "2>", "2>|", "2>>", "|"};
 //[TODO]: struct for number_symbol assoc = {(>, 0) (<, 1) (>|, 2) (>>, 3) (2>, 4) (2>|, 5) (2>>, 6) (|, 7)}
 
-
 char** extract_args(char** flat_tab, int limit) {
   char** tab = malloc(sizeof(char*) * 10);
+  if(tab == NULL) {perror("malloc failed"); exit(1);}
   for(int i=0; i < limit; i++) {
     tab[i] = malloc(sizeof(char) * (strlen(flat_tab[i])+1));
+    if(tab[i] == NULL) {perror("malloc failed"); exit(1);} 
     strcpy(tab[i], flat_tab[i]);
   }
   tab[limit] = NULL;
@@ -77,8 +78,14 @@ int open_and_dup(char* red_type, char** flat_tab, int red_pos) {
   switch (get_assoc_int(red_type)) {
     case 0:
       // >
+      //printf("readtype:%s et flat_tab:%p et redpos:%d et %s\n", red_type, flat_tab, red_pos, flat_tab[red_pos + 1]);
+      // printf("flat:%s\n", flat_tab[red_pos + 1]);
       fd = open(flat_tab[red_pos + 1], O_WRONLY | O_CREAT | O_EXCL, 0666);
-      if(fd == -1) {dprintf(2, "bash: sortie: cannot overwrite existing file\n"); return -1;}
+      if(fd == -1) {
+        dprintf(2, "bash: sortie: cannot overwrite existing file\n");
+        return -1;
+      }
+      // printf("fd=%d\n", fd);
       dup2(fd, STDOUT_FILENO);
       return fd;
     case 1:
@@ -101,9 +108,11 @@ int open_and_dup(char* red_type, char** flat_tab, int red_pos) {
       return fd;
     case 4:
       // 2>
+      //printf("readtype:%s et flat_tab:%p et redpos:%d et %s\n", red_type, flat_tab, red_pos, flat_tab[red_pos + 1]);
       fd = open(flat_tab[red_pos + 1], O_WRONLY | O_CREAT | O_EXCL, 0666);
       if(fd == -1) {perror("failed to open"); return -1;}
       dup2(fd, STDERR_FILENO);
+      //printf("fd=%d\n", fd);
       return fd;
     case 5:
       // 2>|
@@ -119,47 +128,74 @@ int open_and_dup(char* red_type, char** flat_tab, int red_pos) {
       return fd;
     default:
       return -1;
-      break;
   }
 }
-
+// ls < test > t2 2> t3
 void redirection(char** flat_tab) {
   int red_pos = get_red_pos(flat_tab);
   if(red_pos == -1) {
     slash_exec(flat_tab);
     return;
   }
+  // Get all arguments before operator
+  char** cmd_args = extract_args(flat_tab, red_pos);
+
   char* red_type = flat_tab[red_pos];
   
+  // int saved[3] = {dup(0), dup(1), dup(2)};
   int saved_stdout = dup(STDOUT_FILENO);
   int saved_stdin = dup(STDIN_FILENO);
   int saved_stderr = dup(STDERR_FILENO);
-  // Opening file and dup2
-  int fd = open_and_dup(red_type, flat_tab, red_pos);
 
-  // Redirection interdite
-  if(fd < 0)
-    return;
+  int fd[3] = {0};
+  char** ptr = flat_tab;
+  for(int i=0;i<3;i++) {
+     //printf("i=%d\n", i);
+     //printf("redtype %s et redpos %d et i=%d\n", red_type, red_pos, i);
+    // Opening file and dup2
+    fd[i] = open_and_dup(red_type, ptr, red_pos);
+     //printf("redtype %s et redpos %d et i=%d\n", red_type, red_pos, i);
+    // Redirection interdite
+    if(fd[i] < 0) // Attention ici il faut restaurer ceux qui ont marché
+    {
+      //printf("ozenfoeznozenfez fze\n");
+      goto reset;
+    }
+    //  printf("redtype %s et redpos %d et i=%d\n", red_type, red_pos, i);
+    ptr = ptr + red_pos + 1;
+    // printf("ptr:%p et %d %d\n", ptr, red_pos, get_red_pos(ptr));
+    red_pos = get_red_pos(ptr);
+    if(red_pos == -1) {
+      //printf("here");
+      break;
+    }
 
-  // Get all arguments before operator
-  char** cmd_args = extract_args(flat_tab, red_pos);
-  
-  // Execute cmd
-  // [TODO] - HANDLE ERRORS IN CHILD PROCESS
+    red_type = ptr[red_pos];
+  }
 
   slash_exec(cmd_args);
 
-  close(fd);
-  dup2(saved_stdout, STDOUT_FILENO);
-  close(saved_stdout);
-  dup2(saved_stdin, STDIN_FILENO);
-  close(saved_stdin);
-  dup2(saved_stderr, STDERR_FILENO);
-  close(saved_stderr);
-  // On pense que "close" est suffisant pour annuler dup2
-  // Clean memory + Annuation dup2
-  for(int i=0; cmd_args[i]!= NULL; i++) free(cmd_args[i]);
-  free(cmd_args);
+  // for(int i=0;i<3;i++) {
+  //   dup2(saved[i], i);
+  //   close(saved[i]);
+  // }
+
+  goto reset;
+
+  reset:
+    for(int i=0;i<3;i++) {
+      if(fd[i] >= 0)
+        close(fd[i]);
+    }
+    dup2(saved_stdout, STDOUT_FILENO);
+    close(saved_stdout);
+    dup2(saved_stdin, STDIN_FILENO);
+    close(saved_stdin);
+    dup2(saved_stderr, STDERR_FILENO);
+    close(saved_stderr);
+    // Clean memory + Annuation dup2
+    if(cmd_args)
+      free_double_ptr(cmd_args);
 }
 
 
