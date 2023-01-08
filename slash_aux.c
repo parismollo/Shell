@@ -9,7 +9,15 @@ char * get_shorter_path(char * string, int max_path_size) {
   // Get len of current path:
   int path_len = strlen(string);
   // How many chars to remove + 3 dots to add (. . .)
-  int chars_to_rmv =  (path_len - max_path_size) + 3;
+  int suppl = 0;
+  if(exit_status == SIGINT && exit_status == SIGTERM) {
+    suppl = 3;
+  }
+  else if(exit_status >= 10 && exit_status <= 99)
+    suppl = 1;
+  else if(exit_status >= 100)
+    suppl = 2;
+  int chars_to_rmv =  (path_len - max_path_size) + 3 + suppl;
   // If we have to remove something then:
   if(chars_to_rmv > 0) {
     // max_path_size = 25
@@ -28,9 +36,18 @@ char * get_shorter_path(char * string, int max_path_size) {
 
 char * get_exit_status() {
   char * str = malloc(sizeof(char) * 4);
+  if(str == NULL) {
+    perror("error malloc");
+    return NULL;
+  }
+
   switch (exit_status) {
     case 2:
       strcpy(str,"SIG");
+      break;
+    case 15:
+      strcpy(str,"SIG");
+      exit_status = 0;
       break;
     default:
       sprintf(str, "%d", exit_status);

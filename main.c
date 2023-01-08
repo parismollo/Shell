@@ -9,10 +9,10 @@ int main() {
 
   // signal(SIGINT, catchSignal);
 
-  struct sigaction act = {0};
-  act.sa_handler = SIG_IGN;
+  // struct sigaction act = {0};
+  // act.sa_handler = SIG_IGN;
   sigaction(SIGINT, &action, NULL); 
-  sigaction(SIGTERM, &act, NULL);
+  sigaction(SIGTERM, &action, NULL);
   //slash ignore les signaux SIGINT et SIGTERM
 
   while(exec_loop) {

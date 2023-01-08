@@ -8,7 +8,7 @@ Les modules sont les suivants :
 
 - **main.c** : lit en boucle ce que l'utilisateur tape et mets à jour le prompt.
 
-- **slash.h** : contient les bibliothèques et les déclarations des fictions des autres fichiers.
+- **slash.h** : contient les bibliothèques et les déclarations des fonctions des autres fichiers.
 
 - **slash.c** : contient les définitions des commandes internes au projet slash, notamment *slash_cd*, *slash_pwd* et *slash_exit*, ainsi que les fonctions nécessaires à la lecture, l'interprétation et l'exécution des commandes.
 La structure de donnée command est composée d'un "char * name" et d'un pointeur vers une fonction "int (*function) (char** args)" dont le type de retour est un entier et qui prend en paramètre "char **args".
@@ -27,7 +27,7 @@ Tant que la valeur d'exit_loop est différente de 0, on exécute les instruction
 
 ## Déroulement de l'algorithme de slash
 
-### 1. ON RECUPERE ET TRAITE LA COMMANDE TAPEE PAR L'UTILISATEUR
+### 1. On récupère et traite le commande tapée par l'utilisateur
 
 
 Dans la fonction main de **main.c**, on appelle *slash_read* qui utilise *slash_get_prompt* pour obtenir le chemin actuel, puis *readline*, une fonction de la bibliothèque **readline.h**, qui va renvoyer la ligne lue dans le prompt pour mettre à jour la variable prompt_line.
@@ -38,11 +38,11 @@ Sinon, on appelle *slash_interpret* qui va vérifier grâce à *strtok* que la l
 On appelle ensuite *get_tokens_path* pour récupérer le tableau des tokens. Dans cette fonction, on va aussi vérifier s'il y a des jokers à gérer et les gérer avec les fonctions de jokers *prefix*, *total_expansion*, *cut_path* et *get_paths*.
 Puis on appelle *flat_triple_tab* qui permet d'aplatir un tableau à deux dimensions de char* en tableau de char* sur tokens qui contient le tableau des arguments.
 
-### 2. EXECUTION DE LA COMMANDE 
+### 2. Execution de la commande
 
 ### A.Gestion des redirections 
 
-Ensuite *apply_pipes* devrait permettre d'exécuter la commande avec un pipeline si nécessaire et sinon en gérant les redirections, car on va appeler la fonction redirection dans *apply_pipes*.
+Ensuite *apply_pipes* permet d'exécuter la commande avec un pipeline si nécessaire et sinon en gérant les redirections, car on va appeler la fonction redirection dans *apply_pipes*.
 La fonction redirection va gérer les redirections si nécessaire et exécuter la commande grâce à slash_exec de **slash.c**.
 
 ### B.Exécution d'une commande interne 
@@ -70,8 +70,8 @@ Si ce n'est pas une commande interne, on utilise *exec* de **slash_aux.c** qui p
 Dans main on utilise struct sigaction avec sa_handler = SIG_IGN pour ignorer les signaux SIGINT et SIGTERM. Mais ces signaux ne doivent pas être ignorés par les processus exécutant des commandes externes donc on va utiliser struct sigaction avec sa_handler = SIG_DFL pour rétablir la gestion des signaux SIGINT et SIGTERM dans les processus fils. C'est-à-dire que l'on utilise *fork* et dans le processus fils, on rétablit la gestion de ces signaux avec *sigaction* et on utilise *execvp* pour exécuter la commande externe.
 Dans le père, on attend que le processus fils soit terminer et on met à jour exit_status avec WEXITSTATUS.
 
-### 3. FREE, EXIT OU NOUVELLE COMMANDE
+### 3. Free, exit ou nouvelle commande
 
 On libére ensuite les variables avec *free_double_ptr* et *free_triple_ptr* de **slash_aux.c** et *free* et on revient au début de la boucle.
-Si la valeur d'exit_loop est 0, alors la condition de boucle n'est plus vérifier donc on quitte la boucle.
+Si la valeur d'exit_loop est 0, alors la condition de boucle n'est plus vérifiée donc on quitte la boucle.
 On appelle *rl_clear_history* qui va supprimer l'historique de *readline* et on retourne la valeur de l'exit_status. 
