@@ -1,13 +1,16 @@
 #include "slash.h"
 
 /* Expansion d'un path contenant une seule et unique étoile */
-char** joker_expansion(char* path) {
-  char* star = strchr(path, '*');
+char** joker_expansion(char* path, int only_dir) {
+  // Ici, on effectu strrchr pour regarder la DERNIERE étoile dans le path
+  // Et non pas la première avec la strchr. Ce qui permet de corriger le bug
+  // avec les dossiers qui ont une étoile dans le nom! (le test avec *il)
+  char* star = strrchr(path, '*');
   if(star == NULL) {
     // On vérifie si le fichier ou dossier existe.
     // Si oui on le renvoie dans un tableau 2 cases (NULL a la fin)
     // Sinon on renvoie NULL
-    if(!file_exists(path)) {
+    if(!file_exists(path, only_dir)) {
       return NULL;
     }
     // On fait un tableau char** avec juste le path
@@ -91,6 +94,11 @@ char** joker_expansion(char* path) {
       // }
       strcat(temp, entry->d_name);
 
+      // Si on accepte uniquement les dossiers et que ce n'est pas un dossier
+      // Alors on ajoute pas le path à la liste
+      if(only_dir && !file_exists(temp, only_dir))
+        continue;
+
       char* temp2 = malloc(strlen(temp) + 1);
       if(temp2 == NULL) {
         free(new_path);
@@ -100,7 +108,7 @@ char** joker_expansion(char* path) {
         goto error;
       }
       strcpy(temp2, temp);
-      
+
       list[counter++] = temp2;
     }
   }
@@ -142,7 +150,7 @@ int joker_cmp(char* joker, char* name) {
 // on concatène la précédente. On developpe donc étoile par étoile et on obtient
 // une multitude de paths:
 // [a/*, *.c] -> [a/c/file.c, a/c/file2.c, a/b/h.c] 
-char** get_paths(char** input, char** output) {
+char** get_paths(char** input, char** output, int only_dir) {
   // input = ["a/*", "c/*", NULL];
   // output = NULL 
 
@@ -184,7 +192,7 @@ char** get_paths(char** input, char** output) {
     aux[1] = NULL;  
     // aux = ["a/*", NULL]
     // not checked here about input+1
-    return get_paths(input+1, aux);
+    return get_paths(input+1, aux, only_dir);
   }
 
   int flat_size = 10;
@@ -197,7 +205,7 @@ char** get_paths(char** input, char** output) {
   *flat = NULL;
   // flat = [NULL, .....]
   for(int i=0;output[i] != NULL;i++) {
-    char** expansion = joker_expansion(output[i]);
+    char** expansion = joker_expansion(output[i], only_dir);
     if(expansion == NULL) {
       // Cela signifie que aucun fichier/dossier ne matche avec le joker output[i]
       // On passe donc au suivant, avec un continue
@@ -222,7 +230,7 @@ char** get_paths(char** input, char** output) {
     strcat(flat[i], input[0]); 
   }
 
-  return get_paths(input+1, flat);
+  return get_paths(input+1, flat, only_dir);
 }
 
 // Transforme un path avec plusieurs étoile en tableau de string
@@ -369,7 +377,7 @@ int prefix(char* str, char* pre) {
 
 /* Expansion de l'étoile double "**" */
 // On considère que le path doit toujours commencer par "**" ou "**/"
-char** total_expansion(char* path) {
+char** total_expansion(char* path, int only_dir) {
   size_t path_size = strlen(path);
   if(path_size < 2 || (!prefix(path, "**") && !prefix(path, "**/")))
     return NULL;
@@ -396,12 +404,17 @@ char** total_expansion(char* path) {
     string_delete(dir);
     return NULL;
   }
+  size_t no_slashes_size = strlen(no_slashes);
+
+  // (devenu inutile car on passe deja cette variable en argument de la fonction)
+  // Si le path termine par un '/', alors on cherche uniquement les dossiers
+  // int only_dir = no_slashes[no_slashes_size - 1] == '/'; // no_slashes_size toujours > 0 ici
 
   // Si on a juste '**' ou '**/' on considère que le pattern est '*' (on cherche tous fichiers dans l'arbo courante)
   // Sinon on prend ce qu'il y a pres le '**/'
-  char* pattern = strlen(no_slashes) > 3 ? no_slashes + 3 : "*";
+  char* pattern = no_slashes_size > 3 ? no_slashes + 3 : "*";
 
-  char*** paths = total_expansion_aux(dir, pattern, exp, &len, &cap);
+  char*** paths = total_expansion_aux(dir, pattern, only_dir, exp, &len, &cap);
   free(no_slashes);
   string_delete(dir);
   
@@ -417,7 +430,7 @@ char** total_expansion(char* path) {
 /* Fonction auxiliaire pour l'expansion de l'étoile double */
 // On recherche "pattern" dans tous les dossiers en partant du dossier "path"
 // On ajoute chaque résultat dans le tableau de strings "exp"
-char*** total_expansion_aux(string* path, char* pattern, char*** exp, int* size, int* cap) {
+char*** total_expansion_aux(string* path, char* pattern, int only_dir, char*** exp, int* size, int* cap) {
   // On vérifie si exp à une taille suffisante
   if(*size >= *cap - 1) {
     char*** ptr = realloc(exp, sizeof(char**) * (*cap) * 2);
@@ -440,7 +453,7 @@ char*** total_expansion_aux(string* path, char* pattern, char*** exp, int* size,
   char* star = strchr(path->data, '*');
  
   if(star != NULL) {
-    exp[*size] = get_paths(cut, NULL);
+    exp[*size] = get_paths(cut, NULL, only_dir);
     free_double_ptr(cut);
   }
   else {
@@ -481,7 +494,7 @@ char*** total_expansion_aux(string* path, char* pattern, char*** exp, int* size,
       // On concatène le nom du dossier sur notre string
       string_append(path, entry->d_name);
       string_append(path, "/");
-      char*** tmp_exp = total_expansion_aux(path, pattern, exp, size, cap);
+      char*** tmp_exp = total_expansion_aux(path, pattern, only_dir, exp, size, cap);
       if(tmp_exp == NULL)
         goto error;
       exp = tmp_exp;

@@ -55,7 +55,7 @@ int slash_exit(char **args) {
   int status = atoi(args[1]);
 
   // atoi returns 0, if can't convert.
-  if(status == 0) {
+  if(status == 0 && strcmp(args[1], "0") != 0) {
     printf("slash: exiting with status 0\n");
     return 0;
   }
@@ -139,7 +139,7 @@ char **slash_interpret(char *line) {
 
 void slash_exec(char **tokens) {
   // tokens should look like [["cd"], ["path/to/somewhere"]]
-  
+
   // If there is nothing to execute, leave this function. 
   if(tokens[0] == NULL) return;
 
@@ -395,9 +395,18 @@ char*** get_tokens_paths(char** tokens) {
       tab = ptr;
     }
 
+    // On vérifie si il y a un '/' à la fin. Si oui, alors on 
+    // acceptera que les dossiers
+    size_t token_size = strlen(tokens[i]);
+    int only_dir;
+    if(token_size == 0) // Impossible normalement
+      only_dir = 0;
+    else
+      only_dir = tokens[i][token_size-1] == '/';
+
     // On vérifie si on doit appliquer le double joker
     if(prefix(tokens[i], "**")) {
-      tab[tab_size] = total_expansion(tokens[i]);
+      tab[tab_size] = total_expansion(tokens[i], only_dir);
     }
     else {
       char** cut = cut_path(tokens[i], "*");
@@ -405,7 +414,7 @@ char*** get_tokens_paths(char** tokens) {
       
       char* star = strchr(tokens[i], '*');
       if(star != NULL) {
-        tab[tab_size] = get_paths(cut, NULL);
+        tab[tab_size] = get_paths(cut, NULL, only_dir);
         free_double_ptr(cut);
       }
       else {
@@ -413,17 +422,53 @@ char*** get_tokens_paths(char** tokens) {
       }
     }
     
+    if(tab[tab_size] == NULL) {
+      fprintf(stderr, "une erreur est survenue dans get_tokens_path\n");
+      free_triple_ptr(tab);
+      return NULL;
+    }
+
+    for(int i=0;tab[tab_size][i] != NULL;i++) {
+      char* tmp = tab[tab_size][i];
+      tab[tab_size][i] = remove_slashes(tab[tab_size][i]);
+      free(tmp);
+
+      // Si on voulait que des dossiers, on rajoute si besoin, un '/' à la fin
+      if(only_dir) {
+        size_t len = strlen(tab[tab_size][i]);
+        if(len == 0) {
+          fprintf(stderr, "Un argument est vide. C'est impossible.\n");
+          free_triple_ptr(tab);
+          return NULL;
+        }
+
+        // Un '/' est déjà présent à la fin. Donc, on a rien a faire.
+        if(tab[tab_size][i][len-1] == '/')
+          continue;
+        // Sinon, on fait un realloc et on ajoute une case avec un '/' à la fin.
+        tmp = realloc(tab[tab_size][i], len + 1 + 1); // +1 pour '/' et +1 pour '\0'
+        if(tmp == NULL) {
+          perror("realloc");
+          free_triple_ptr(tab);
+          return NULL;
+        }
+        strcat(tmp, "/"); // "a" -> "a/"
+        tab[tab_size][i] = tmp;
+      }
+
+    }
+
     tab_size++;
   }
   tab[tab_size] = NULL;
 
-  for(int j=0;tab[j] != NULL;j++) {
-    for(int i=0;tab[j][i] != NULL;i++) {
-      char* tmp = tab[j][i];
-      tab[j][i] = remove_slashes(tab[j][i]);
-      free(tmp);
-    }
-  }
+  // for(int j=0;tab[j] != NULL;j++) {
+  //   for(int i=0;tab[j][i] != NULL;i++) {
+  //     char* tmp = tab[j][i];
+  //     tab[j][i] = remove_slashes(tab[j][i]);
+  //     free(tmp);
+  //   }
+  // }
 
   return tab;
 }

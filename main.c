@@ -2,12 +2,18 @@
 
 int main() {
 
-  struct sigaction action;
-  memset(&action, 0, sizeof(struct sigaction));
-  action.sa_handler = catchSignal;
-  sigaction(SIGINT, &action ,NULL);
+  // struct sigaction action={0};
+  // memset(&action, 0, sizeof(struct sigaction));
+  // action.sa_handler = catchSignal;
+  //sigaction(SIGINT, &action ,NULL);
 
   // signal(SIGINT, catchSignal);
+
+  struct sigaction act = {0};
+  act.sa_handler = SIG_IGN;
+  sigaction(SIGINT, &act, NULL); 
+  sigaction(SIGTERM, &act, NULL);
+  //slash ignore les signaux SIGINT et SIGTERM
 
   while(exec_loop) {
     // Step 1: Read input and update prompt line variable:
@@ -28,6 +34,7 @@ int main() {
         
         if(flat_tokens) {
           slash_exec(flat_tokens);
+          //sigaction(SIGINT, &action ,NULL);
           free_double_ptr(flat_tokens);
         }
 

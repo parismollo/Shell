@@ -273,13 +273,22 @@ int slash_cd_aux(char option, const char* pwd, char *args) {
     return 1;
 }
 
+// void f() {
+//   exit(0);
+// }
+
 /* Permet d'executer une commande externe avec plusieurs arguments */
 void exec(char** tokens) {
+  struct sigaction act;
+  memset(&act, 0, sizeof(act));
+  act.sa_handler = SIG_DFL;
   switch (fork()) {
       case -1 :
         perror("slash");
         return;
       case 0 :
+        sigaction(SIGINT, &act, NULL); 
+        sigaction(SIGTERM, &act, NULL);
         execvp((const char*) tokens[0], tokens); // On execute cette commande externe dans un processus fils 
         // Si il y a une erreur, par exemple si la commande n'existe pas
         exit_status = 127;
@@ -305,8 +314,12 @@ char* copy_str(char* str) {
 }
 
 /* Vérifie si un fichier/repertoire existe. Renvoie 1 si c'est le cas, 0 sinon */
-int file_exists(char* file) {
-  int fd = open(file, O_RDONLY);
+int file_exists(char* file, int is_directory) {
+  int fd;
+  if(is_directory)
+    fd = open(file, O_RDONLY | O_DIRECTORY);
+  else
+    fd = open(file, O_RDONLY);
   if(fd < 0) {
     return 0;
   }
