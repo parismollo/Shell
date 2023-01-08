@@ -78,14 +78,11 @@ int open_and_dup(char* red_type, char** flat_tab, int red_pos) {
   switch (get_assoc_int(red_type)) {
     case 0:
       // >
-      //printf("readtype:%s et flat_tab:%p et redpos:%d et %s\n", red_type, flat_tab, red_pos, flat_tab[red_pos + 1]);
-      // printf("flat:%s\n", flat_tab[red_pos + 1]);
       fd = open(flat_tab[red_pos + 1], O_WRONLY | O_CREAT | O_EXCL, 0666);
       if(fd == -1) {
         dprintf(2, "bash: sortie: cannot overwrite existing file\n");
         return -1;
       }
-      // printf("fd=%d\n", fd);
       dup2(fd, STDOUT_FILENO);
       return fd;
     case 1:
@@ -108,7 +105,6 @@ int open_and_dup(char* red_type, char** flat_tab, int red_pos) {
       return fd;
     case 4:
       // 2>
-      //printf("readtype:%s et flat_tab:%p et redpos:%d et %s\n", red_type, flat_tab, red_pos, flat_tab[red_pos + 1]);
       fd = open(flat_tab[red_pos + 1], O_WRONLY | O_CREAT | O_EXCL, 0666);
       if(fd == -1) {perror("failed to open"); return -1;}
       dup2(fd, STDERR_FILENO);
@@ -150,23 +146,17 @@ void redirection(char** flat_tab) {
   int fd[3] = {0};
   char** ptr = flat_tab;
   for(int i=0;i<3;i++) {
-     //printf("i=%d\n", i);
-     //printf("redtype %s et redpos %d et i=%d\n", red_type, red_pos, i);
     // Opening file and dup2
     fd[i] = open_and_dup(red_type, ptr, red_pos);
-     //printf("redtype %s et redpos %d et i=%d\n", red_type, red_pos, i);
     // Redirection interdite
     if(fd[i] < 0) // Attention ici il faut restaurer ceux qui ont marché
     {
-      //printf("ozenfoeznozenfez fze\n");
       goto reset;
     }
-    //  printf("redtype %s et redpos %d et i=%d\n", red_type, red_pos, i);
+    
     ptr = ptr + red_pos + 1;
-    // printf("ptr:%p et %d %d\n", ptr, red_pos, get_red_pos(ptr));
     red_pos = get_red_pos(ptr);
     if(red_pos == -1) {
-      //printf("here");
       break;
     }
 
@@ -174,11 +164,6 @@ void redirection(char** flat_tab) {
   }
 
   slash_exec(cmd_args);
-
-  // for(int i=0;i<3;i++) {
-  //   dup2(saved[i], i);
-  //   close(saved[i]);
-  // }
 
   goto reset;
 
@@ -197,47 +182,3 @@ void redirection(char** flat_tab) {
     if(cmd_args)
       free_double_ptr(cmd_args);
 }
-
-
-// int main() {
-  
-//   char ** flat_tab = malloc(4 * sizeof(char*));
-//   if(flat_tab == NULL) {perror("malloc failed"); exit(1);}
-
-//   flat_tab[0] = malloc(strlen("cat")+1);
-//   strcpy(flat_tab[0], "cat");
-//   flat_tab[1] = malloc(strlen("<")+1);
-//   strcpy(flat_tab[1], "<");
-//   flat_tab[2] = malloc(strlen("hello.txt")+1);
-//   strcpy(flat_tab[2], "hello.txt");
-//   flat_tab[3] = NULL;
-  
- 
-//   char ** flat_tab2 = malloc(5 * sizeof(char*));
-//   if(flat_tab2 == NULL) {perror("malloc failed"); exit(1);}
-
-//   flat_tab2[0] = malloc(strlen("ls")+1);
-//   strcpy(flat_tab2[0], "ls");
-//   flat_tab2[1] = malloc(strlen("blabla")+1);
-//   strcpy(flat_tab2[1], "blabla");
-//   flat_tab2[2] = malloc(strlen("2>>")+1);
-//   strcpy(flat_tab2[2], "2>>");
-//   flat_tab2[3] = malloc(strlen("new_file.txt")+1);
-//   strcpy(flat_tab2[3], "new_file.txt");
-//   flat_tab2[4] = NULL;
-  
-//   redirection(flat_tab);
-//   redirection(flat_tab2);
-
-//   // Clean up memory
-//   for(size_t i = 0; i< 4; i++) {
-//     free(flat_tab2[i]);
-//   }
-//   for(size_t i = 0; i< 3; i++) {
-//     free(flat_tab[i]);
-//   }
-//   free(flat_tab2);
-//   free(flat_tab);
-
-//   return EXIT_SUCCESS; 
-// }

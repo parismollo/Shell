@@ -2,16 +2,16 @@
 
 int main() {
 
-  // struct sigaction action={0};
-  // memset(&action, 0, sizeof(struct sigaction));
-  // action.sa_handler = catchSignal;
+  struct sigaction action={0};
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler = catchSignal;
   //sigaction(SIGINT, &action ,NULL);
 
   // signal(SIGINT, catchSignal);
 
   struct sigaction act = {0};
   act.sa_handler = SIG_IGN;
-  sigaction(SIGINT, &act, NULL); 
+  sigaction(SIGINT, &action, NULL); 
   sigaction(SIGTERM, &act, NULL);
   //slash ignore les signaux SIGINT et SIGTERM
 
@@ -29,7 +29,6 @@ int main() {
         
         if(flat_tokens) {
           apply_pipes(flat_tokens);
-          
           //slash_exec(flat_tokens);
           free_double_ptr(flat_tokens);
         }
