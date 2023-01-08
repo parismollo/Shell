@@ -310,12 +310,6 @@ char * slash_get_prompt() {
 }
 
 
-//Factoriser code 
-//Commenter code
-//Completer le error :
-//Faire les error pour setenv
-//Faire plusieurs fichiers .c  
-
 
 //La fonction qui gére la commande cd 
 int slash_cd(char **args)
