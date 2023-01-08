@@ -171,7 +171,9 @@ int slash_pwd(char** args) {
       // perror("La variable d'environnement PWD n'existe pas");
       return 1;
     }
-    printf("%s\n", pwd);
+    //printf("%s\n", pwd);
+    write(1, pwd, strlen(pwd));
+    write(1, "\n", 1);
     return 0;
   }
   else if(strcmp(args[1], "-P") != 0) {
@@ -226,8 +228,11 @@ int slash_pwd(char** args) {
 
   closedir(dir);
 
-  if(PRINT_PWD)
-    printf("%s\n", buffer);
+  if(PRINT_PWD) {
+    //printf("%s\n", buffer);
+    write(1, buffer, strlen(buffer));
+    write(1, "\n", 1);
+  }
   else
     strcpy(PATH, buffer);
 

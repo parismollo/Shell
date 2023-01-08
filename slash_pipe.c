@@ -1,9 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include "mystring.c"
+#include "slash.h"
 
 int contains_pipe(char** tab) {
   for(int i=0; tab[i] != NULL; i++) {
@@ -18,7 +13,9 @@ int contains_pipe(char** tab) {
 }
 
 char** get_new_tab(char** tab) {
+  // [ls, test, |, cat, |, wc]
   // convert tab dans un seul string avec mystring(string new et string append) et ensuite on utilise strtok!!
+  // ["ls test", "cat", "wc"]
   string* cmd = string_new(10);
   for(int i=0; tab[i]!=NULL; i++) {
     string_append(cmd, tab[i]);
@@ -27,6 +24,7 @@ char** get_new_tab(char** tab) {
   int len = 0;
   int capacity = 100;
   char** tokens = malloc(sizeof(char*) * capacity);
+  // TODO malloc
   char* token = strtok(cmd->data, "|");
   while(token != NULL) {
     if(len >= capacity - 1) {
@@ -41,22 +39,32 @@ char** get_new_tab(char** tab) {
 }
 
 char** get_args(char* str) {
-  int capacity = 0;
+  int capacity = 10;
   int len = 0;
   char** tokens = malloc(sizeof(char*) * capacity);
   char* token = strtok(str, " ");
 
   while(token != NULL) {
     if(len >= capacity - 1) {
-      /*realloc*/
+      char** ptr = realloc(tokens, capacity * 2 * sizeof(char*));
+      if(ptr == NULL) {
+        perror("error in get_args realloc");
+        free(tokens);
+        return NULL;
+      }
+      tokens = ptr;
+      capacity *= 2;
     }
-    tokens[len] = token;
+    tokens[len] = copy_str(token);
+    if(tokens[len] == NULL)
+      return NULL;
     len++;
     token = strtok(NULL, " ");
   }
   tokens[len] = NULL;
   return tokens;
 }
+
 void f(char** tab) {
   // int fd = open("log", O_WRONLY | O_APPEND, 0666);
   int fd_prev[2], fd_next[2];
@@ -71,6 +79,7 @@ void f(char** tab) {
       if(pid == 0) {
         close(fd_prev[1]);
         close(fd_next[0]);
+        close(fd_prev[0]);
         
         dup2(fd_next[1], STDOUT_FILENO);
         
@@ -132,26 +141,33 @@ void f(char** tab) {
   }
 }
 
-int main() {
-  char ** flat_tab = malloc(7 * sizeof(char*));
-  if(flat_tab == NULL) {perror("malloc failed"); exit(1);}
-
-  flat_tab[0] = malloc(strlen("ls")+1);
-  strcpy(flat_tab[0], "ls");
-  flat_tab[1] = malloc(strlen("test")+1);
-  strcpy(flat_tab[1], "test");
-  flat_tab[2] = malloc(strlen("|")+1);
-  strcpy(flat_tab[2], "|");
-  flat_tab[3] = malloc(strlen("cat")+1);
-  strcpy(flat_tab[3], "cat");
-  flat_tab[4] = malloc(strlen("|")+1);
-  strcpy(flat_tab[4], "|");
-  flat_tab[5] = malloc(strlen("wc")+1);
-  strcpy(flat_tab[5], "wc");
-  flat_tab[6] = NULL;
-  
-  if(contains_pipe(flat_tab) == 0) return 0;
-  char** new_tab = get_new_tab(flat_tab);
-  f(new_tab);
-  return EXIT_SUCCESS; 
+void apply_pipes(char** tokens) {
+  // If pas de pipes
+  redirection(tokens);
+  // if pipes
+  // ...
 }
+
+// int main() {
+//   char ** flat_tab = malloc(7 * sizeof(char*));
+//   if(flat_tab == NULL) {perror("malloc failed"); exit(1);}
+
+//   flat_tab[0] = malloc(strlen("ls")+1);
+//   strcpy(flat_tab[0], "ls");
+//   flat_tab[1] = malloc(strlen("test")+1);
+//   strcpy(flat_tab[1], "test");
+//   flat_tab[2] = malloc(strlen("|")+1);
+//   strcpy(flat_tab[2], "|");
+//   flat_tab[3] = malloc(strlen("cat")+1);
+//   strcpy(flat_tab[3], "cat");
+//   flat_tab[4] = malloc(strlen("|")+1);
+//   strcpy(flat_tab[4], "|");
+//   flat_tab[5] = malloc(strlen("wc")+1);
+//   strcpy(flat_tab[5], "wc");
+//   flat_tab[6] = NULL;
+  
+//   if(contains_pipe(flat_tab) == 0) return 0;
+//   char** new_tab = get_new_tab(flat_tab);
+//   f(new_tab);
+//   return EXIT_SUCCESS; 
+// }

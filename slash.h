@@ -7,6 +7,7 @@
 // Libraries
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <stdlib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -92,5 +93,11 @@ string* string_new(size_t capacity);
 void string_delete(string* str);
 int string_append (string* dest, char* src);
 void string_truncate (string* str, size_t nchars);
+
+/* slash_redirections.c */
+void redirection(char** flat_tab);
+
+/* slash_pipe.c */
+void apply_pipes(char** tokens);
 
 #endif
