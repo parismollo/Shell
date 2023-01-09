@@ -64,6 +64,8 @@ char * get_color(int n) {
     return colors[0];
   case 1:
   case 2:
+  case 15:
+  case 255:
   case 127:
     return colors[1];
   case 1000:

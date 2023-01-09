@@ -96,6 +96,7 @@ void string_truncate (string* str, size_t nchars);
 
 /* slash_redirections.c */
 void redirection(char** flat_tab);
+int is_valid_operator(char* str);
 
 /* slash_pipe.c */
 void apply_pipes(char** tokens);
