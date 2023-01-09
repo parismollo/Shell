@@ -4,7 +4,8 @@ int main() {
 
   struct sigaction action={0};
   memset(&action, 0, sizeof(struct sigaction));
-  action.sa_handler = catchSignal;
+  //action.sa_handler = catchSignal;
+  action.sa_handler = SIG_IGN;
   //sigaction(SIGINT, &action ,NULL);
 
   // signal(SIGINT, catchSignal);
@@ -39,7 +40,7 @@ int main() {
     }
     
     free(prompt_line);
-  } 
+  }
   // Clear readline history:
   rl_clear_history();
   return exit_status;

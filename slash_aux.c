@@ -46,8 +46,9 @@ char * get_exit_status() {
       strcpy(str,"SIG");
       break;
     case 15:
+    case 255:
       strcpy(str,"SIG");
-      exit_status = 0;
+      //exit_status = 0;
       break;
     default:
       sprintf(str, "%d", exit_status);
@@ -314,7 +315,9 @@ void exec(char** tokens) {
     }
     int w;
     wait(&w);
-    if(WIFEXITED(w))
+    if(WIFSIGNALED(w))
+      exit_status = 255;
+    else if(WIFEXITED(w))
       exit_status = WEXITSTATUS(w);
 }
 

@@ -81,7 +81,6 @@ void slash_read() {
   prompt_line = readline(prompt_path);
   // Detects EOF
   if(prompt_line == NULL) {
-    // exit_status = 0;
     exec_loop = 0;
     free(prompt_path);
     return;
